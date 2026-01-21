@@ -1,0 +1,9 @@
+@import "tailwindcss";
+@import "./globals.css";
+
+/* Canvas */
+.canvas-bg {
+    background-color: var(--canvas-bg);
+    background-image: radial-gradient(#dcdee1 1px, transparent 1px);
+    background-size: 20px 20px;
+}
