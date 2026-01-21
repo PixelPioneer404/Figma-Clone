@@ -11,26 +11,47 @@ const circleTool = document.querySelector('#circle');
 const lineTool = document.querySelector('#line');
 const textTool = document.querySelector('#text');
 
+//create the dimension panel
+function createDimensionPanel(width, height) {
+    const div = document.createElement('div')
+    div.classList.add("dimension", "pointer-events-none", "z-[999]", "text-white", "font-sans", "text-xs", "absolute", "-bottom-8", "left-1/2", "-translate-x-1/2", "px-3", "h-6", "rounded", "bg-blue-500", "flex", "justify-center", "items-center", "min-w-15", "whitespace-nowrap")
+    let absWidth = Math.abs(width)
+    let absHeight = Math.abs(height)
+    div.textContent = `${Math.round(absWidth)} × ${Math.round(absHeight)}`
+    return div
+}
+
+function updateDimensionPanel(panel, width, height) {
+    let absWidth = Math.abs(width)
+    let absHeight = Math.abs(height)
+    panel.textContent = `${Math.round(absWidth)} × ${Math.round(absHeight)}`
+}
+
 selectTool.addEventListener('click', () => {
+    canvas.style.cursor = 'default' //for selection tool
     mode = 'select'
     console.log('Mode:', mode, '| Tool:', currentTool)
 })
 squareTool.addEventListener('click', () => {
+    canvas.style.cursor = 'default' //for selection tool
     mode = 'draw'
     currentTool = 'square'
     console.log('Mode:', mode, '| Tool:', currentTool)
 })
 circleTool.addEventListener('click', () => {
+    canvas.style.cursor = 'default' //for selection tool
     mode = 'draw'
     currentTool = 'circle'
     console.log('Mode:', mode, '| Tool:', currentTool)
 })
 lineTool.addEventListener('click', () => {
+    canvas.style.cursor = 'default' //for selection tool
     mode = 'draw'
     currentTool = 'line'
     console.log('Mode:', mode, '| Tool:', currentTool)
 })
 textTool.addEventListener('click', () => {
+    canvas.style.cursor = 'default' //for selection tool
     mode = 'draw'
     currentTool = 'text'
     console.log('Mode:', mode, '| Tool:', currentTool)
@@ -39,7 +60,7 @@ textTool.addEventListener('click', () => {
 canvas.addEventListener('mousedown', handleMouseDown)
 function handleMouseDown(e) {
     if (mode === 'draw') {
-        canvas.style.cursor = 'crosshair' //for any draw tool
+        canvas.style.cursor = 'crosshair' //for selection tool
 
         let type = currentTool
         let x = e.clientX
@@ -49,7 +70,7 @@ function handleMouseDown(e) {
         let styles = {
             borderWidth: '2px',
             borderColor: 'transparent',
-            backgroundColor: '#FF0000',
+            backgroundColor: '#D4D4D4',
             borderRadius: '0px'
         }
 
@@ -60,6 +81,10 @@ function handleMouseDown(e) {
         let currentId = id
 
         const tempDiv = document.createElement('div')
+
+        // Create dimension panel once
+        const dimensionPanel = createDimensionPanel(0, 0)
+        tempDiv.appendChild(dimensionPanel)
 
         function handleMouseMove(e) {
             width = e.clientX - x
@@ -80,6 +105,9 @@ function handleMouseDown(e) {
                 tempDiv.style.height = `${Math.abs(height)}px`
                 styles.borderRadius = '0px'
                 tempDiv.style.borderRadius = styles.borderRadius
+                
+                // Update dimension panel for square
+                updateDimensionPanel(dimensionPanel, width, height)
             } else if (currentTool === 'circle') {
                 if (width > 0) tempDiv.style.left = `${x}px`
                 else tempDiv.style.left = `${x + width}px`
@@ -89,6 +117,9 @@ function handleMouseDown(e) {
                 tempDiv.style.height = `${Math.abs(height)}px`
                 styles.borderRadius = '100%'
                 tempDiv.style.borderRadius = styles.borderRadius
+                
+                // Update dimension panel for circle
+                updateDimensionPanel(dimensionPanel, width, height)
             } else if (currentTool === 'line') {
                 // Calculate line length and angle for any direction
                 const length = Math.sqrt(width * width + height * height)
@@ -103,6 +134,9 @@ function handleMouseDown(e) {
                 tempDiv.style.transform = `rotate(${angle}deg)`
                 styles.borderRadius = '0px'
                 tempDiv.style.borderRadius = styles.borderRadius
+                
+                // Update dimension panel for line (show length × 2)
+                updateDimensionPanel(dimensionPanel, length, 2)
             }
 
             canvas.appendChild(tempDiv)
@@ -112,7 +146,7 @@ function handleMouseDown(e) {
             elements = elements.map((el) => {
                 if (el.id === id) {
                     selectedItemId = el.id
-                    return { ...el, styles: { ...el.styles, borderColor: '#0000FF' } }
+                    return { ...el, styles: { ...el.styles, borderColor: '#0E81E6' } }
                 } else {
                     return { ...el, styles: { ...el.styles, borderColor: 'transparent' } }
                 }
@@ -157,6 +191,7 @@ function handleMouseDown(e) {
         // Check if clicked on canvas (not an element)
         if (!target.dataset.element || target === canvas) {
             console.log('Clicked on canvas, deselecting all')
+
             selectedItemId = null
             elements = elements.map((elem) => {
                 return { ...elem, styles: { ...elem.styles, borderColor: 'transparent' } }
@@ -184,7 +219,7 @@ function handleMouseDown(e) {
 
         elements = elements.map((elem) => {
             if (elem.id === selectedItemId) {
-                return { ...elem, styles: { ...elem.styles, borderColor: '#0000FF' } }
+                return { ...elem, styles: { ...elem.styles, borderColor: '#0E81E6' } }
             } else {
                 return { ...elem, styles: { ...elem.styles, borderColor: 'transparent' } }
             }
@@ -199,6 +234,16 @@ function handleMouseDown(e) {
             // Get the fresh element reference after render
             const currentElement = canvas.querySelector(`[data-element="${selectedItemId}"]`)
             if (currentElement) {
+                // Get element and canvas dimensions for boundary checking
+                const elementWidth = currentElement.offsetWidth
+                const elementHeight = currentElement.offsetHeight
+                const canvasWidth = canvas.offsetWidth
+                const canvasHeight = canvas.offsetHeight
+
+                // Restrict movement within canvas boundaries
+                newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth))
+                newY = Math.max(0, Math.min(newY, canvasHeight - elementHeight))
+
                 currentElement.style.left = `${newX}px`
                 currentElement.style.top = `${newY}px`
             }
@@ -241,6 +286,13 @@ function createElement(element) {
     const div = document.createElement('div')
     div.dataset.element = element.id
     applyStyles(div, element)
+
+    // Add dimension panel if element is selected (has blue border)
+    if (element.styles.borderColor === '#0E81E6') {
+        const dimensionPanel = createDimensionPanel(element.width, element.height)
+        div.appendChild(dimensionPanel)
+    }
+
     return div
 }
 
