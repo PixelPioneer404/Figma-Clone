@@ -1,35 +1,52 @@
+import { handleToolsToolTip } from './features/toolsTooltip.js'
+import { toolSelector } from './features/toolsSelect.js'
+
 let elements = []
 let id = 0
 let mode = 'select'
-let currentTool = null
+let currentTool = 'select'
 let selectedItemId = null
 
+// DOM selections
 const canvas = document.querySelector('#canvas')
 const selectTool = document.querySelector('#select');
 const squareTool = document.querySelector('#square');
 const circleTool = document.querySelector('#circle');
 const lineTool = document.querySelector('#line');
 const textTool = document.querySelector('#text');
+const toolsTooltip = document.querySelector('#tools-tooltip')
 
-//create the dimension panel
-function createDimensionPanel(width, height) {
+const toolsTooltipData = [
+    { element: selectTool, label: 'Selection (V)' },
+    { element: squareTool, label: 'Rectangle (R)' },
+    { element: circleTool, label: 'Circle (C)' },
+    { element: lineTool, label: 'Line (L)' },
+    { element: textTool, label: 'Text (T)' }
+]
+
+handleToolsToolTip(toolsTooltip, toolsTooltipData)
+
+toolSelector(document.querySelector(`#${currentTool}`))
+
+// Dimension panel
+function createDimensionPanel(width, height, isLine = false) {
     const div = document.createElement('div')
     div.classList.add("dimension", "pointer-events-none", "z-[999]", "text-white", "font-sans", "text-xs", "absolute", "-bottom-8", "left-1/2", "-translate-x-1/2", "px-3", "h-6", "rounded", "bg-blue-500", "flex", "justify-center", "items-center", "min-w-15", "whitespace-nowrap")
     let absWidth = Math.abs(width)
     let absHeight = Math.abs(height)
-    div.textContent = `${Math.round(absWidth)} × ${Math.round(absHeight)}`
+    div.textContent = isLine ? `${Math.round(absWidth)}` : `${Math.round(absWidth)} × ${Math.round(absHeight)}`
     return div
 }
-
-function updateDimensionPanel(panel, width, height) {
+function updateDimensionPanel(panel, width, height, isLine = false) {
     let absWidth = Math.abs(width)
     let absHeight = Math.abs(height)
-    panel.textContent = `${Math.round(absWidth)} × ${Math.round(absHeight)}`
+    panel.textContent = isLine ? `${Math.round(absWidth)}` : `${Math.round(absWidth)} × ${Math.round(absHeight)}`
 }
 
 selectTool.addEventListener('click', () => {
     canvas.style.cursor = 'default' //for selection tool
     mode = 'select'
+    currentTool = 'select'
     console.log('Mode:', mode, '| Tool:', currentTool)
 })
 squareTool.addEventListener('click', () => {
@@ -83,7 +100,7 @@ function handleMouseDown(e) {
         const tempDiv = document.createElement('div')
 
         // Create dimension panel once
-        const dimensionPanel = createDimensionPanel(0, 0)
+        const dimensionPanel = createDimensionPanel(0, 0, type === 'line')
         tempDiv.appendChild(dimensionPanel)
 
         function handleMouseMove(e) {
@@ -105,7 +122,7 @@ function handleMouseDown(e) {
                 tempDiv.style.height = `${Math.abs(height)}px`
                 styles.borderRadius = '0px'
                 tempDiv.style.borderRadius = styles.borderRadius
-                
+
                 // Update dimension panel for square
                 updateDimensionPanel(dimensionPanel, width, height)
             } else if (currentTool === 'circle') {
@@ -117,7 +134,7 @@ function handleMouseDown(e) {
                 tempDiv.style.height = `${Math.abs(height)}px`
                 styles.borderRadius = '100%'
                 tempDiv.style.borderRadius = styles.borderRadius
-                
+
                 // Update dimension panel for circle
                 updateDimensionPanel(dimensionPanel, width, height)
             } else if (currentTool === 'line') {
@@ -134,9 +151,9 @@ function handleMouseDown(e) {
                 tempDiv.style.transform = `rotate(${angle}deg)`
                 styles.borderRadius = '0px'
                 tempDiv.style.borderRadius = styles.borderRadius
-                
-                // Update dimension panel for line (show length × 2)
-                updateDimensionPanel(dimensionPanel, length, 2)
+
+                // Update dimension panel for line (show only length)
+                updateDimensionPanel(dimensionPanel, length, 0, true)
             }
 
             canvas.appendChild(tempDiv)
@@ -289,7 +306,8 @@ function createElement(element) {
 
     // Add dimension panel if element is selected (has blue border)
     if (element.styles.borderColor === '#0E81E6') {
-        const dimensionPanel = createDimensionPanel(element.width, element.height)
+        const isLine = element.type === 'line'
+        const dimensionPanel = createDimensionPanel(element.width, element.height, isLine)
         div.appendChild(dimensionPanel)
     }
 
