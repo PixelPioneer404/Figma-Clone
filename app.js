@@ -1,9 +1,11 @@
 import { handleToolsToolTip } from './features/toolsTooltip.js'
 import { toolSelector } from './features/toolsSelect.js'
+import { switchTab } from './features/switchTab.js'
 
 let elements = []
 let id = 0
 let mode = 'select'
+let tab = 'create'
 let currentTool = 'select'
 let selectedItemId = null
 
@@ -15,6 +17,7 @@ const circleTool = document.querySelector('#circle');
 const lineTool = document.querySelector('#line');
 const textTool = document.querySelector('#text');
 const toolsTooltip = document.querySelector('#tools-tooltip')
+const tabs = document.querySelectorAll('.tab')
 
 const toolsTooltipData = [
     { element: selectTool, label: 'Selection (V)' },
@@ -76,9 +79,9 @@ textTool.addEventListener('click', () => {
 
 canvas.addEventListener('mousedown', handleMouseDown)
 function handleMouseDown(e) {
-    if (mode === 'draw') {
+    console.log(tab, mode)
+    if (tab === 'create' && mode === 'draw') {
         canvas.style.cursor = 'crosshair' //for selection tool
-
         let type = currentTool
         let x = e.clientX
         let y = e.clientY
@@ -194,6 +197,11 @@ function handleMouseDown(e) {
                     elements.push({ id: currentId, type, x, y, width, height, styles })
                 }
                 mode = 'select'
+                let currentToolEl = document.querySelector(`#${currentTool}`)
+                currentToolEl.style.backgroundColor = 'transparent'
+                selectTool.style.backgroundColor = '#0E81E6'
+                currentTool = 'select'
+                toolSelector(document.querySelector(`#${currentTool}`))
                 applyBorders(currentId)
             }
             renderElements()
@@ -202,7 +210,7 @@ function handleMouseDown(e) {
 
         canvas.addEventListener('mousemove', handleMouseMove)
         canvas.addEventListener('mouseup', handleMouseUp)
-    } else {
+    } else if (tab === 'create' && mode === 'select') {
         const target = e.target
 
         // Check if clicked on canvas (not an element)
@@ -251,15 +259,20 @@ function handleMouseDown(e) {
             // Get the fresh element reference after render
             const currentElement = canvas.querySelector(`[data-element="${selectedItemId}"]`)
             if (currentElement) {
-                // Get element and canvas dimensions for boundary checking
-                const elementWidth = currentElement.offsetWidth
-                const elementHeight = currentElement.offsetHeight
                 const canvasWidth = canvas.offsetWidth
                 const canvasHeight = canvas.offsetHeight
 
-                // Restrict movement within canvas boundaries
-                newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth))
-                newY = Math.max(0, Math.min(newY, canvasHeight - elementHeight))
+                // For lines, keep origin point within canvas
+                if (targetDetails.type === 'line') {
+                    newX = Math.max(0, Math.min(newX, canvasWidth))
+                    newY = Math.max(0, Math.min(newY, canvasHeight))
+                } else {
+                    // For shapes, use element dimensions for boundary checking
+                    const elementWidth = currentElement.offsetWidth
+                    const elementHeight = currentElement.offsetHeight
+                    newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth))
+                    newY = Math.max(0, Math.min(newY, canvasHeight - elementHeight))
+                }
 
                 currentElement.style.left = `${newX}px`
                 currentElement.style.top = `${newY}px`
@@ -348,3 +361,27 @@ function applyStyles(item, stylingInfo) {
         item.style.height = `${Math.abs(stylingInfo.height)}px`
     }
 }
+
+// Initialize tab indicator position
+function initTabIndicator() {
+    const activeTab = document.querySelector('.active-tab')
+    const indicator = document.querySelector('#tab-indicator')
+    const tabRect = activeTab.getBoundingClientRect()
+    const containerRect = activeTab.parentElement.getBoundingClientRect()
+
+    indicator.style.left = `${tabRect.left - containerRect.left}px`
+    indicator.style.width = `${tabRect.width}px`
+}
+
+// Initialize on page load
+initTabIndicator()
+
+tabs.forEach((tabEl) => {
+    tabEl.addEventListener('click', e => {
+        const el = e.target
+        tab = el.id
+        if(tab === 'export') canvas.style.cursor = 'default'
+        else canvas.style.cursor = 'crosshair'
+        switchTab(el)
+    })
+})
