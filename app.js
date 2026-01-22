@@ -1,6 +1,7 @@
 import { handleToolsToolTip } from './features/toolsTooltip.js'
 import { toolSelector } from './features/toolsSelect.js'
 import { switchTab } from './features/switchTab.js'
+import { createResizeHandles, createRotationHandle, handleResize, handleRotation } from './features/handles.js'
 
 let elements = []
 let id = 0
@@ -32,18 +33,109 @@ handleToolsToolTip(toolsTooltip, toolsTooltipData)
 toolSelector(document.querySelector(`#${currentTool}`))
 
 // Dimension panel
-function createDimensionPanel(width, height, isLine = false) {
+function createDimensionPanel(width, height, rotation = 0, isLine = false) {
     const div = document.createElement('div')
-    div.classList.add("dimension", "pointer-events-none", "z-[999]", "text-white", "font-sans", "text-xs", "absolute", "-bottom-8", "left-1/2", "-translate-x-1/2", "px-3", "h-6", "rounded", "bg-blue-500", "flex", "justify-center", "items-center", "min-w-15", "whitespace-nowrap")
+    div.classList.add("dimension", "pointer-events-none", "z-[999]", "text-white", "font-sans", "text-xs", "absolute", "px-3", "h-6", "rounded", "bg-blue-500", "flex", "justify-center", "items-center", "min-w-15", "whitespace-nowrap")
+    
     let absWidth = Math.abs(width)
     let absHeight = Math.abs(height)
     div.textContent = isLine ? `${Math.round(absWidth)}` : `${Math.round(absWidth)} × ${Math.round(absHeight)}`
+    
+    // Switch which local edge to attach to based on which faces downward in world space
+    // Counter-rotate the panel to keep text horizontal and readable
+    const normalizedRotation = ((rotation || 0) % 360 + 360) % 360
+    
+    if (normalizedRotation >= 45 && normalizedRotation < 135) {
+        // Rotated ~90° - local right edge faces down
+        div.style.left = '100%'
+        div.style.top = '50%'
+        div.style.right = ''
+        div.style.bottom = ''
+        div.style.marginLeft = '8px'
+        div.style.marginTop = '0'
+        div.style.transform = `translate(-50%, -50%) rotate(${-rotation}deg)`
+    } else if (normalizedRotation >= 135 && normalizedRotation < 225) {
+        // Rotated ~180° - local top edge faces down
+        div.style.left = '50%'
+        div.style.top = '-32px'
+        div.style.right = ''
+        div.style.bottom = ''
+        div.style.marginLeft = '0'
+        div.style.marginTop = '0'
+        div.style.transform = `translateX(-50%) rotate(${-rotation}deg)`
+    } else if (normalizedRotation >= 225 && normalizedRotation < 315) {
+        // Rotated ~270° - local left edge faces down
+        div.style.right = '100%'
+        div.style.top = '50%'
+        div.style.left = ''
+        div.style.bottom = ''
+        div.style.marginRight = '8px'
+        div.style.marginLeft = '0'
+        div.style.marginTop = '0'
+        div.style.transform = `translate(50%, -50%) rotate(${-rotation}deg)`
+    } else {
+        // Normal - local bottom edge faces down
+        div.style.left = '50%'
+        div.style.top = ''
+        div.style.right = ''
+        div.style.bottom = '-32px'
+        div.style.marginLeft = '0'
+        div.style.marginTop = '0'
+        div.style.marginRight = '0'
+        div.style.transform = `translateX(-50%) rotate(${-rotation}deg)`
+    }
+    
     return div
 }
-function updateDimensionPanel(panel, width, height, isLine = false) {
+function updateDimensionPanel(panel, width, height, rotation = 0, isLine = false) {
     let absWidth = Math.abs(width)
     let absHeight = Math.abs(height)
     panel.textContent = isLine ? `${Math.round(absWidth)}` : `${Math.round(absWidth)} × ${Math.round(absHeight)}`
+    
+    // Update position based on rotation
+    const normalizedRotation = ((rotation || 0) % 360 + 360) % 360
+    
+    if (normalizedRotation >= 45 && normalizedRotation < 135) {
+        // Rotated ~90° - local right edge faces down
+        panel.style.left = '100%'
+        panel.style.top = '50%'
+        panel.style.right = ''
+        panel.style.bottom = ''
+        panel.style.marginLeft = '8px'
+        panel.style.marginTop = '0'
+        panel.style.marginRight = '0'
+        panel.style.transform = `translate(-50%, -50%) rotate(${-rotation}deg)`
+    } else if (normalizedRotation >= 135 && normalizedRotation < 225) {
+        // Rotated ~180° - local top edge faces down
+        panel.style.left = '50%'
+        panel.style.top = '-32px'
+        panel.style.right = ''
+        panel.style.bottom = ''
+        panel.style.marginLeft = '0'
+        panel.style.marginTop = '0'
+        panel.style.marginRight = '0'
+        panel.style.transform = `translateX(-50%) rotate(${-rotation}deg)`
+    } else if (normalizedRotation >= 225 && normalizedRotation < 315) {
+        // Rotated ~270° - local left edge faces down
+        panel.style.right = '100%'
+        panel.style.top = '50%'
+        panel.style.left = ''
+        panel.style.bottom = ''
+        panel.style.marginRight = '8px'
+        panel.style.marginLeft = '0'
+        panel.style.marginTop = '0'
+        panel.style.transform = `translate(50%, -50%) rotate(${-rotation}deg)`
+    } else {
+        // Normal - local bottom edge faces down
+        panel.style.left = '50%'
+        panel.style.top = ''
+        panel.style.right = ''
+        panel.style.bottom = '-32px'
+        panel.style.marginLeft = '0'
+        panel.style.marginTop = '0'
+        panel.style.marginRight = '0'
+        panel.style.transform = `translateX(-50%) rotate(${-rotation}deg)`
+    }
 }
 
 selectTool.addEventListener('click', () => {
@@ -79,6 +171,20 @@ textTool.addEventListener('click', () => {
 
 canvas.addEventListener('mousedown', handleMouseDown)
 function handleMouseDown(e) {
+    const target = e.target
+    
+    // Check if clicking on resize handle
+    if (target.classList.contains('resize-handle')) {
+        handleResize(e, target, elements, renderElements)
+        return
+    }
+    
+    // Check if clicking on rotation handle
+    if (target.classList.contains('rotation-handle')) {
+        handleRotation(e, target, elements, renderElements)
+        return
+    }
+    
     console.log(tab, mode)
     if (tab === 'create' && mode === 'draw') {
         canvas.style.cursor = 'crosshair' //for selection tool
@@ -103,7 +209,7 @@ function handleMouseDown(e) {
         const tempDiv = document.createElement('div')
 
         // Create dimension panel once
-        const dimensionPanel = createDimensionPanel(0, 0, type === 'line')
+        const dimensionPanel = createDimensionPanel(0, 0, 0, type === 'line')
         tempDiv.appendChild(dimensionPanel)
 
         function handleMouseMove(e) {
@@ -127,7 +233,7 @@ function handleMouseDown(e) {
                 tempDiv.style.borderRadius = styles.borderRadius
 
                 // Update dimension panel for square
-                updateDimensionPanel(dimensionPanel, width, height)
+                updateDimensionPanel(dimensionPanel, width, height, 0)
             } else if (currentTool === 'circle') {
                 if (width > 0) tempDiv.style.left = `${x}px`
                 else tempDiv.style.left = `${x + width}px`
@@ -139,7 +245,7 @@ function handleMouseDown(e) {
                 tempDiv.style.borderRadius = styles.borderRadius
 
                 // Update dimension panel for circle
-                updateDimensionPanel(dimensionPanel, width, height)
+                updateDimensionPanel(dimensionPanel, width, height, 0)
             } else if (currentTool === 'line') {
                 // Calculate line length and angle for any direction
                 const length = Math.sqrt(width * width + height * height)
@@ -156,7 +262,7 @@ function handleMouseDown(e) {
                 tempDiv.style.borderRadius = styles.borderRadius
 
                 // Update dimension panel for line (show only length)
-                updateDimensionPanel(dimensionPanel, length, 0, true)
+                updateDimensionPanel(dimensionPanel, length, 0, angle, true)
             }
 
             canvas.appendChild(tempDiv)
@@ -320,8 +426,18 @@ function createElement(element) {
     // Add dimension panel if element is selected (has blue border)
     if (element.styles.borderColor === '#0E81E6') {
         const isLine = element.type === 'line'
-        const dimensionPanel = createDimensionPanel(element.width, element.height, isLine)
+        const dimensionPanel = createDimensionPanel(element.width, element.height, element.rotation, isLine)
         div.appendChild(dimensionPanel)
+        
+        // Add resize handles
+        const resizeHandles = createResizeHandles(element)
+        resizeHandles.forEach(handle => div.appendChild(handle))
+        
+        // Add rotation handle (not for lines)
+        const rotationHandle = createRotationHandle(element)
+        if (rotationHandle) {
+            div.appendChild(rotationHandle)
+        }
     }
 
     return div
@@ -342,7 +458,13 @@ function applyStyles(item, stylingInfo) {
         item.style.width = `${stylingInfo.width}px`
         item.style.height = `${stylingInfo.height}px`
         item.style.transformOrigin = stylingInfo.styles.transformOrigin || '0 0'
-        item.style.transform = stylingInfo.styles.transform || 'none'
+        
+        // Apply line-specific transform or rotation
+        if (stylingInfo.rotation !== undefined) {
+            item.style.transform = `rotate(${stylingInfo.rotation}deg)`
+        } else if (stylingInfo.styles.transform) {
+            item.style.transform = stylingInfo.styles.transform
+        }
     } else {
         // Handle squares and circles
         if (stylingInfo.width > 0) {
@@ -359,6 +481,12 @@ function applyStyles(item, stylingInfo) {
 
         item.style.width = `${Math.abs(stylingInfo.width)}px`
         item.style.height = `${Math.abs(stylingInfo.height)}px`
+        
+        // Apply rotation for shapes
+        if (stylingInfo.rotation !== undefined) {
+            item.style.transform = `rotate(${stylingInfo.rotation}deg)`
+            item.style.transformOrigin = 'center center'
+        }
     }
 }
 
