@@ -2,6 +2,7 @@ import { handleToolsToolTip } from './features/toolsTooltip.js'
 import { toolSelector } from './features/toolsSelect.js'
 import { switchTab } from './features/switchTab.js'
 import { createResizeHandles, createRotationHandle, handleResize, handleRotation } from './features/handles.js'
+import { PropertiesPanel } from './features/propertiesPanel.js'
 
 let elements = []
 let id = 0
@@ -9,6 +10,7 @@ let mode = 'select'
 let tab = 'create'
 let currentTool = 'select'
 let selectedItemId = null
+let propertiesPanel = null
 
 // DOM selections
 const canvas = document.querySelector('#canvas')
@@ -27,6 +29,13 @@ const toolsTooltipData = [
     { element: lineTool, label: 'Line (L)' },
     { element: textTool, label: 'Text (T)' }
 ]
+
+// Initialize Properties Panel
+propertiesPanel = new PropertiesPanel(
+    () => elements,
+    (newElements) => { elements = newElements },
+    renderElements
+)
 
 handleToolsToolTip(toolsTooltip, toolsTooltipData)
 
@@ -163,7 +172,7 @@ lineTool.addEventListener('click', () => {
     console.log('Mode:', mode, '| Tool:', currentTool)
 })
 textTool.addEventListener('click', () => {
-    canvas.style.cursor = 'default' //for selection tool
+    canvas.style.cursor = 'text'
     mode = 'draw'
     currentTool = 'text'
     console.log('Mode:', mode, '| Tool:', currentTool)
@@ -175,18 +184,90 @@ function handleMouseDown(e) {
     
     // Check if clicking on resize handle
     if (target.classList.contains('resize-handle')) {
-        handleResize(e, target, elements, renderElements)
+        const syncCallback = () => {
+            if (propertiesPanel && selectedItemId) {
+                propertiesPanel.onSelectionChange(selectedItemId, true)
+            }
+        }
+        handleResize(e, target, elements, renderElements, syncCallback)
         return
     }
     
     // Check if clicking on rotation handle
     if (target.classList.contains('rotation-handle')) {
-        handleRotation(e, target, elements, renderElements)
+        const syncCallback = () => {
+            if (propertiesPanel && selectedItemId) {
+                propertiesPanel.onSelectionChange(selectedItemId, true)
+            }
+        }
+        handleRotation(e, target, elements, renderElements, syncCallback)
         return
     }
     
     console.log(tab, mode)
     if (tab === 'create' && mode === 'draw') {
+        // Handle text tool differently - single click placement
+        if (currentTool === 'text') {
+            const x = e.clientX
+            const y = e.clientY
+            
+            id = id + 1
+            const currentId = id
+            
+            // Create text element
+            const textElement = {
+                id: currentId,
+                type: 'text',
+                x: x,
+                y: y,
+                width: 'auto',
+                height: 'auto',
+                fontSize: 16,
+                text: 'Text',
+                isNewlyCreated: true,
+                isSelected: true,
+                styles: {
+                    borderWidth: '0px',
+                    borderColor: '#000000',
+                    backgroundColor: 'transparent',
+                    borderRadius: '0px'
+                }
+            }
+            
+            elements.push(textElement)
+            selectedItemId = currentId
+            
+            // Switch to select mode
+            mode = 'select'
+            currentTool = 'select'
+            textTool.style.backgroundColor = 'transparent'
+            selectTool.style.backgroundColor = '#0E81E6'
+            toolSelector(document.querySelector('#select'))
+            
+            renderElements()
+            
+            // Sync properties panel to newly created text element
+            if (propertiesPanel) {
+                propertiesPanel.onSelectionChange(currentId)
+            }
+            
+            // Focus the text element after rendering
+            setTimeout(() => {
+                const textDiv = canvas.querySelector(`[data-element="${currentId}"] .text-content`)
+                if (textDiv) {
+                    textDiv.focus()
+                    // Select all text
+                    const range = document.createRange()
+                    range.selectNodeContents(textDiv)
+                    const selection = window.getSelection()
+                    selection.removeAllRanges()
+                    selection.addRange(range)
+                }
+            }, 0)
+            
+            return
+        }
+        
         canvas.style.cursor = 'crosshair' //for selection tool
         let type = currentTool
         let x = e.clientX
@@ -272,11 +353,18 @@ function handleMouseDown(e) {
             elements = elements.map((el) => {
                 if (el.id === id) {
                     selectedItemId = el.id
-                    return { ...el, styles: { ...el.styles, borderColor: '#0E81E6' } }
+                    // Remove isNewlyCreated flag when selecting
+                    const { isNewlyCreated, ...rest } = el
+                    return { ...rest, isSelected: true }
                 } else {
-                    return { ...el, styles: { ...el.styles, borderColor: 'transparent' } }
+                    const { isNewlyCreated, ...rest } = el
+                    return { ...rest, isSelected: false }
                 }
             })
+            // Sync properties panel
+            if (propertiesPanel) {
+                propertiesPanel.onSelectionChange(id)
+            }
         }
 
         function handleMouseUp() {
@@ -320,29 +408,38 @@ function handleMouseDown(e) {
         const target = e.target
 
         // Check if clicked on canvas (not an element)
-        if (!target.dataset.element || target === canvas) {
+        // Need to check if target or its parent has dataset.element (for text-content)
+        const elementDiv = target.closest('[data-element]')
+        
+        if (!elementDiv || target === canvas) {
             console.log('Clicked on canvas, deselecting all')
 
             selectedItemId = null
             elements = elements.map((elem) => {
-                return { ...elem, styles: { ...elem.styles, borderColor: 'transparent' } }
+                const { isNewlyCreated, ...rest } = elem
+                return { ...rest, isSelected: false }
             })
             renderElements()
+            
+            // Sync properties panel
+            if (propertiesPanel) {
+                propertiesPanel.onSelectionChange(null)
+            }
             return
         }
 
         let startMouseX = e.clientX
         let startMouseY = e.clientY
 
-        selectedItemId = Number(target.dataset.element)
+        selectedItemId = Number(elementDiv.dataset.element)
         console.log('Selected element:', selectedItemId)
 
         const targetDetails = elements.find(el => el.id === selectedItemId)
         console.log(targetDetails)
 
         // Get actual rendered position from DOM (not from data)
-        const startElementX = parseInt(target.style.left)
-        const startElementY = parseInt(target.style.top)
+        const startElementX = parseInt(elementDiv.style.left)
+        const startElementY = parseInt(elementDiv.style.top)
 
         // Initialize with current position so clicking without dragging doesn't move element
         let newX = startElementX
@@ -350,13 +447,18 @@ function handleMouseDown(e) {
 
         elements = elements.map((elem) => {
             if (elem.id === selectedItemId) {
-                return { ...elem, styles: { ...elem.styles, borderColor: '#0E81E6' } }
+                return { ...elem, isSelected: true }
             } else {
-                return { ...elem, styles: { ...elem.styles, borderColor: 'transparent' } }
+                return { ...elem, isSelected: false }
             }
         })
 
         renderElements()
+        
+        // Sync properties panel
+        if (propertiesPanel) {
+            propertiesPanel.onSelectionChange(selectedItemId)
+        }
 
         function handleMouseMove(e) {
             newX = startElementX + (e.clientX - startMouseX)
@@ -423,20 +525,92 @@ function createElement(element) {
     div.dataset.element = element.id
     applyStyles(div, element)
 
-    // Add dimension panel if element is selected (has blue border)
-    if (element.styles.borderColor === '#0E81E6') {
+    // For text elements, add contenteditable div
+    if (element.type === 'text') {
+        const textContent = document.createElement('div')
+        textContent.className = 'text-content'
+        const isNewlyCreated = element.isNewlyCreated
+        textContent.setAttribute('contenteditable', isNewlyCreated ? 'true' : 'false')
+        textContent.textContent = element.text || 'Text'
+        textContent.style.outline = 'none'
+        textContent.style.fontSize = `${element.fontSize || 16}px`
+        textContent.style.fontFamily = 'Arial, sans-serif'
+        textContent.style.cursor = isNewlyCreated ? 'text' : 'move'
+        textContent.style.padding = '4px'
+        textContent.style.boxSizing = 'border-box'
+        textContent.style.whiteSpace = 'pre-wrap'
+        textContent.style.wordWrap = 'break-word'
+        textContent.style.minWidth = '20px'
+        textContent.style.minHeight = '20px'
+        textContent.style.display = 'inline-block'
+        textContent.style.userSelect = isNewlyCreated ? 'text' : 'none'
+        
+        // Update element text on input
+        textContent.addEventListener('input', (e) => {
+            const elementIndex = elements.findIndex(el => el.id === element.id)
+            if (elementIndex !== -1) {
+                elements[elementIndex].text = e.target.textContent
+            }
+        })
+        
+        // Save and exit edit mode on blur
+        textContent.addEventListener('blur', (e) => {
+            textContent.setAttribute('contenteditable', 'false')
+            textContent.style.cursor = 'move'
+            textContent.style.userSelect = 'none'
+            
+            // Update element text and remove isNewlyCreated flag
+            const elementIndex = elements.findIndex(el => el.id === element.id)
+            if (elementIndex !== -1) {
+                elements[elementIndex].text = e.target.textContent
+                delete elements[elementIndex].isNewlyCreated
+            }
+        })
+        
+        // Stop propagation when actively editing
+        textContent.addEventListener('mousedown', (e) => {
+            if (textContent.getAttribute('contenteditable') === 'true') {
+                e.stopPropagation()
+            }
+        })
+        
+        // If element is newly created, focus and select text
+        if (isNewlyCreated) {
+            setTimeout(() => {
+                textContent.focus()
+                
+                // Select all text
+                const range = document.createRange()
+                range.selectNodeContents(textContent)
+                const selection = window.getSelection()
+                selection.removeAllRanges()
+                selection.addRange(range)
+            }, 0)
+        }
+        
+        div.appendChild(textContent)
+    }
+
+    // Add dimension panel if element is selected
+    if (element.isSelected) {
         const isLine = element.type === 'line'
-        const dimensionPanel = createDimensionPanel(element.width, element.height, element.rotation, isLine)
-        div.appendChild(dimensionPanel)
+        const isText = element.type === 'text'
+        
+        if (!isText) {
+            const dimensionPanel = createDimensionPanel(element.width, element.height, element.rotation, isLine)
+            div.appendChild(dimensionPanel)
+        }
         
         // Add resize handles
         const resizeHandles = createResizeHandles(element)
         resizeHandles.forEach(handle => div.appendChild(handle))
         
-        // Add rotation handle (not for lines)
-        const rotationHandle = createRotationHandle(element)
-        if (rotationHandle) {
-            div.appendChild(rotationHandle)
+        // Add rotation handle (not for lines or text)
+        if (!isLine && !isText) {
+            const rotationHandle = createRotationHandle(element)
+            if (rotationHandle) {
+                div.appendChild(rotationHandle)
+            }
         }
     }
 
@@ -446,13 +620,44 @@ function createElement(element) {
 function applyStyles(item, stylingInfo) {
     item.type = stylingInfo.type
     item.style.position = 'absolute'
+    item.style.borderStyle = 'solid'
     item.style.borderWidth = stylingInfo.styles.borderWidth
     item.style.borderColor = stylingInfo.styles.borderColor
     item.style.backgroundColor = stylingInfo.styles.backgroundColor
     item.style.borderRadius = stylingInfo.styles.borderRadius
+    item.style.cursor = 'move'
+    
+    // Add selection outline (separate from border)
+    if (stylingInfo.isSelected) {
+        item.style.outline = '2px solid #0E81E6'
+        item.style.outlineOffset = '0px'
+    } else {
+        item.style.outline = 'none'
+    }
 
+    // Handle text elements
+    if (stylingInfo.type === 'text') {
+        item.style.top = `${stylingInfo.y}px`
+        item.style.left = `${stylingInfo.x}px`
+        
+        // Use auto sizing for text elements
+        if (stylingInfo.width === 'auto' || !stylingInfo.width) {
+            item.style.width = 'auto'
+            item.style.maxWidth = '800px' // Prevent too wide
+        } else {
+            item.style.width = `${stylingInfo.width}px`
+        }
+        
+        if (stylingInfo.height === 'auto' || !stylingInfo.height) {
+            item.style.height = 'auto'
+        } else {
+            item.style.height = `${stylingInfo.height}px`
+        }
+        
+        item.style.display = 'inline-block'
+    }
     // Handle lines differently
-    if (stylingInfo.type === 'line') {
+    else if (stylingInfo.type === 'line') {
         item.style.top = `${stylingInfo.y}px`
         item.style.left = `${stylingInfo.x}px`
         item.style.width = `${stylingInfo.width}px`

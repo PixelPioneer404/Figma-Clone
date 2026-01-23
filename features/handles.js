@@ -20,6 +20,10 @@ export function createResizeHandles(element) {
         line: [
             { cursor: 'grab', corner: 'start' },
             { cursor: 'grab', corner: 'end' }
+        ],
+        text: [
+            { cursor: 'nw-resize', top: '-5px', left: '-5px', corner: 'tl' },
+            { cursor: 'se-resize', bottom: '-5px', right: '-5px', corner: 'br' }
         ]
     }
     
@@ -99,7 +103,7 @@ export function createRotationHandle(element) {
     return handle
 }
 
-export function handleResize(e, handleEl, elements, renderCallback) {
+export function handleResize(e, handleEl, elements, renderCallback, syncCallback) {
     e.stopPropagation()
     
     const corner = handleEl.dataset.corner
@@ -116,6 +120,26 @@ export function handleResize(e, handleEl, elements, renderCallback) {
     const startPosY = element.y
     const rotation = element.rotation || 0
     const rotationRad = rotation * (Math.PI / 180)
+    
+    // For text elements, store the initial anchor position
+    let textAnchorX, textAnchorY, initialTextWidth, initialTextHeight
+    if (element.type === 'text') {
+        const textDiv = document.querySelector(`[data-element="${elementId}"]`)
+        const textContent = textDiv ? textDiv.querySelector('.text-content') : null
+        const actualRect = textContent ? textContent.getBoundingClientRect() : null
+        initialTextWidth = actualRect ? actualRect.width : 100
+        initialTextHeight = actualRect ? actualRect.height : 30
+        
+        if (corner === 'tl') {
+            // Anchor at bottom-right corner
+            textAnchorX = startPosX + initialTextWidth
+            textAnchorY = startPosY + initialTextHeight
+        } else if (corner === 'br') {
+            // Anchor at top-left corner
+            textAnchorX = startPosX
+            textAnchorY = startPosY
+        }
+    }
     
     handleEl.style.cursor = 'grabbing'
     
@@ -380,6 +404,68 @@ export function handleResize(e, handleEl, elements, renderCallback) {
                 renderCallback()
                 return
             }
+        } else if (element.type === 'text') {
+            // Text resize - adjust font size with opposite corner anchored
+            if (corner === 'tl') {
+                // Top-left handle: bottom-right corner is fixed at textAnchorX, textAnchorY
+                const currentDist = Math.sqrt(
+                    Math.pow(e.clientX - textAnchorX, 2) + Math.pow(e.clientY - textAnchorY, 2)
+                )
+                const startDist = Math.sqrt(
+                    Math.pow(startPosX - textAnchorX, 2) + Math.pow(startPosY - textAnchorY, 2)
+                )
+                
+                const distChange = currentDist - startDist
+                const fontSizeChange = distChange / 5
+                const startFontSize = element.fontSize || 16
+                let newFontSize = startFontSize + fontSizeChange
+                newFontSize = Math.max(8, Math.min(200, newFontSize))
+                
+                // Calculate position to keep bottom-right corner at anchor
+                const fontScale = newFontSize / startFontSize
+                const scaledWidth = initialTextWidth * fontScale
+                const scaledHeight = initialTextHeight * fontScale
+                
+                newX = textAnchorX - scaledWidth
+                newY = textAnchorY - scaledHeight
+                
+                const index = elements.findIndex(el => el.id === elementId)
+                if (index !== -1) {
+                    elements[index] = {
+                        ...elements[index],
+                        fontSize: newFontSize,
+                        x: newX,
+                        y: newY
+                    }
+                }
+            } else if (corner === 'br') {
+                // Bottom-right handle: top-left corner is fixed at textAnchorX, textAnchorY
+                const currentDist = Math.sqrt(
+                    Math.pow(e.clientX - textAnchorX, 2) + Math.pow(e.clientY - textAnchorY, 2)
+                )
+                const startDist = Math.sqrt(
+                    Math.pow((startPosX + initialTextWidth) - textAnchorX, 2) + 
+                    Math.pow((startPosY + initialTextHeight) - textAnchorY, 2)
+                )
+                
+                const distChange = currentDist - startDist
+                const fontSizeChange = distChange / 5
+                const startFontSize = element.fontSize || 16
+                let newFontSize = startFontSize + fontSizeChange
+                newFontSize = Math.max(8, Math.min(200, newFontSize))
+                
+                // Position stays at anchor (top-left)
+                const index = elements.findIndex(el => el.id === elementId)
+                if (index !== -1) {
+                    elements[index] = {
+                        ...elements[index],
+                        fontSize: newFontSize
+                    }
+                }
+            }
+            
+            renderCallback()
+            return
         }
         
         // Update element in array (for non-line or simple updates)
@@ -407,7 +493,7 @@ export function handleResize(e, handleEl, elements, renderCallback) {
     document.addEventListener('mouseup', onMouseUp)
 }
 
-export function handleRotation(e, rotationHandle, elements, renderCallback) {
+export function handleRotation(e, rotationHandle, elements, renderCallback, syncCallback) {
     e.stopPropagation()
     
     const elementId = Number(rotationHandle.dataset.elementId)
@@ -444,6 +530,7 @@ export function handleRotation(e, rotationHandle, elements, renderCallback) {
         }
         
         renderCallback()
+        if (syncCallback) syncCallback()
     }
     
     function onMouseUp() {

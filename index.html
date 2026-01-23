@@ -65,6 +65,111 @@
             </div>
         </div>
     </div>
+
+    <!-- Properties Panel Toggle Button -->
+    <button id="panel-toggle-btn" class="fixed top-1/2 -translate-y-1/2 right-2 bg-(--menu-bg) text-white w-10 h-14 rounded-l-xl flex items-center justify-center hover:bg-gray-600 transition-all duration-300 shadow-lg z-[999] border-l border-t border-b border-white/10">
+        <i class="ri-arrow-left-double-fill text-xl"></i>
+    </button>
+
+    <!-- Properties Panel -->
+    <div id="properties-panel" class="fixed top-1/2 -translate-y-1/2 right-[40px] bg-(--menu-bg) w-[300px] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-white/5 transition-all duration-300 ease-out translate-x-[calc(100%+40px)] z-[998] backdrop-blur-sm">
+        <!-- Panel Header -->
+        <div class="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <h3 class="text-white font-sans font-semibold text-lg tracking-tight">Properties</h3>
+            <button id="panel-close-btn" class="text-white/60 hover:text-white hover:bg-white/10 transition-all rounded-lg p-1.5">
+                <i class="ri-arrow-right-double-fill text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Panel Content -->
+        <div id="panel-content" class="px-5 py-5 space-y-5 max-h-[80vh] overflow-y-auto scrollbar-thin">
+            <!-- Dimensions Group -->
+            <div class="space-y-3">
+                <p class="text-white/40 text-[10px] uppercase tracking-wider font-sans font-semibold mb-3">Dimensions</p>
+                <div class="flex items-center gap-3">
+                    <label class="text-white/80 text-xs font-sans font-medium min-w-[60px]">Width</label>
+                    <div class="flex-1 relative">
+                        <input id="prop-width" type="number" class="w-full bg-gray-800/60 text-white px-3 py-2.5 pr-10 rounded-lg text-sm font-sans border border-gray-700/50 focus:outline-none focus:border-(--accent-color) focus:bg-gray-800 transition-all" />
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 text-[11px] font-medium">px</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="text-white/80 text-xs font-sans font-medium min-w-[60px]">Height</label>
+                    <div class="flex-1 relative">
+                        <input id="prop-height" type="number" class="w-full bg-gray-800/60 text-white px-3 py-2.5 pr-10 rounded-lg text-sm font-sans border border-gray-700/50 focus:outline-none focus:border-(--accent-color) focus:bg-gray-800 transition-all" />
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 text-[11px] font-medium">px</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="text-white/80 text-xs font-sans font-medium min-w-[60px]">Rotation</label>
+                    <div class="flex-1 relative">
+                        <input id="prop-rotation" type="number" class="w-full bg-gray-800/60 text-white px-3 py-2.5 pr-10 rounded-lg text-sm font-sans border border-gray-700/50 focus:outline-none focus:border-(--accent-color) focus:bg-gray-800 transition-all" />
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 text-[11px] font-medium">deg</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Border Radius (Only for squares) -->
+            <div id="prop-border-radius-group" class="space-y-3 hidden pt-2 border-t border-white/5">
+                <p class="text-white/40 text-[10px] uppercase tracking-wider font-sans font-semibold mb-3">Corner</p>
+                <div class="flex items-center gap-3">
+                    <label class="text-white/80 text-xs font-sans font-medium min-w-[60px]">Radius</label>
+                    <div class="flex-1 relative">
+                        <input id="prop-border-radius" type="number" class="w-full bg-gray-800/60 text-white px-3 py-2.5 pr-10 rounded-lg text-sm font-sans border border-gray-700/50 focus:outline-none focus:border-(--accent-color) focus:bg-gray-800 transition-all" />
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 text-[11px] font-medium">px</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Colors Group -->
+            <div class="space-y-3 pt-2 border-t border-white/5">
+                <p class="text-white/40 text-[10px] uppercase tracking-wider font-sans font-semibold mb-3">Appearance</p>
+                <div class="flex items-center gap-3">
+                    <label class="text-white/80 text-xs font-sans font-medium min-w-[60px]">Fill</label>
+                    <div class="flex-1 relative group">
+                        <input id="prop-bg-color" type="color" class="w-full h-11 bg-gray-800/60 rounded-lg cursor-pointer border border-gray-700/50 hover:border-gray-600 transition-all" />
+                        <div class="absolute inset-0 rounded-lg ring-2 ring-transparent group-hover:ring-white/10 transition-all pointer-events-none"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stroke Group -->
+            <div class="space-y-3 pt-2 border-t border-white/5">
+                <p class="text-white/40 text-[10px] uppercase tracking-wider font-sans font-semibold mb-3">Stroke</p>
+                <div class="flex items-center gap-3">
+                    <label class="text-white/80 text-xs font-sans font-medium min-w-[60px]">Color</label>
+                    <div class="flex-1 relative group">
+                        <input id="prop-stroke-color" type="color" class="w-full h-11 bg-gray-800/60 rounded-lg cursor-pointer border border-gray-700/50 hover:border-gray-600 transition-all" />
+                        <div class="absolute inset-0 rounded-lg ring-2 ring-transparent group-hover:ring-white/10 transition-all pointer-events-none"></div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="text-white/80 text-xs font-sans font-medium min-w-[60px]">Width</label>
+                    <div class="flex-1 relative">
+                        <input id="prop-stroke-width" type="number" min="0" class="w-full bg-gray-800/60 text-white px-3 py-2.5 pr-10 rounded-lg text-sm font-sans border border-gray-700/50 focus:outline-none focus:border-(--accent-color) focus:bg-gray-800 transition-all" />
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 text-[11px] font-medium">px</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Text Content (Only for text elements) -->
+            <div id="prop-text-group" class="space-y-3 hidden pt-2 border-t border-white/5">
+                <p class="text-white/40 text-[10px] uppercase tracking-wider font-sans font-semibold mb-3">Text</p>
+                <div class="flex flex-col gap-2.5">
+                    <label class="text-white/80 text-xs font-sans font-medium">Content</label>
+                    <textarea id="prop-text-content" rows="3" class="w-full bg-gray-800/60 text-white px-3 py-2.5 rounded-lg text-sm font-sans border border-gray-700/50 focus:outline-none focus:border-(--accent-color) focus:bg-gray-800 transition-all resize-none leading-relaxed"></textarea>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="text-white/80 text-xs font-sans font-medium min-w-[60px]">Size</label>
+                    <div class="flex-1 relative">
+                        <input id="prop-font-size" type="number" min="8" max="200" class="w-full bg-gray-800/60 text-white px-3 py-2.5 pr-10 rounded-lg text-sm font-sans border border-gray-700/50 focus:outline-none focus:border-(--accent-color) focus:bg-gray-800 transition-all" />
+                        <span class="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 text-[11px] font-medium">px</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="app.js"></script>
 </body>
 
