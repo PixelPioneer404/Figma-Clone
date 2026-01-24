@@ -1,0 +1,222 @@
+export class LayersPanel {
+    constructor(getElements, setElements, renderCallback, onLayerSelect, onLayerDelete) {
+        this.getElements = getElements
+        this.setElements = setElements
+        this.renderCallback = renderCallback
+        this.onLayerSelect = onLayerSelect
+        this.onLayerDelete = onLayerDelete
+        this.isVisible = false
+        this.selectedLayerId = null
+        
+        // Get DOM elements
+        this.panel = document.getElementById('layers-panel')
+        this.toggleBtn = document.getElementById('layers-toggle-btn')
+        this.closeBtn = document.getElementById('layers-close-btn')
+        this.layersList = document.getElementById('layers-list')
+        
+        this.init()
+    }
+    
+    init() {
+        // Toggle button click - shows panel
+        this.toggleBtn.addEventListener('click', () => {
+            this.show()
+        })
+        
+        // Close button click - hides panel
+        this.closeBtn.addEventListener('click', () => {
+            this.hide()
+        })
+        
+        // Initial render
+        this.updateLayersList()
+    }
+    
+    show() {
+        this.isVisible = true
+        this.panel.classList.remove('-translate-x-[calc(100%+40px)]')
+        this.panel.classList.add('translate-x-0')
+        this.toggleBtn.style.opacity = '0'
+        this.toggleBtn.style.pointerEvents = 'none'
+    }
+    
+    hide() {
+        this.isVisible = false
+        this.panel.classList.add('-translate-x-[calc(100%+40px)]')
+        this.panel.classList.remove('translate-x-0')
+        this.toggleBtn.style.opacity = '1'
+        this.toggleBtn.style.pointerEvents = 'auto'
+    }
+    
+    updateLayersList() {
+        const elements = this.getElements()
+        
+        // Clear current list
+        this.layersList.innerHTML = ''
+        
+        // If no elements, show empty state
+        if (elements.length === 0) {
+            this.layersList.innerHTML = `
+                <div class="text-white/40 text-sm font-sans text-center py-8">
+                    No layers yet
+                </div>
+            `
+            return
+        }
+        
+        // Render layers in reverse order (top element = highest z-index)
+        const reversedElements = [...elements].reverse()
+        
+        reversedElements.forEach((element, visualIndex) => {
+            const layerItem = this.createLayerItem(element, visualIndex, reversedElements.length)
+            this.layersList.appendChild(layerItem)
+        })
+    }
+    
+    createLayerItem(element, visualIndex, totalLayers) {
+        const layerDiv = document.createElement('div')
+        layerDiv.dataset.layerId = element.id
+        layerDiv.className = `layer-item flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-white/5 transition-all cursor-pointer group ${
+            element.isSelected ? 'bg-blue-500/20 border border-blue-500/50' : 'border border-transparent'
+        }`
+        
+        // Get element icon based on type
+        const icon = this.getElementIcon(element.type)
+        
+        // Get element name
+        const name = this.getElementName(element)
+        
+        // Visual index 0 = top of list = highest z-index = can only move down
+        // Visual index last = bottom of list = lowest z-index = can only move up
+        const isAtTop = visualIndex === 0
+        const isAtBottom = visualIndex === totalLayers - 1
+        
+        layerDiv.innerHTML = `
+            <div class="flex items-center gap-2 flex-1 min-w-0" data-layer-select="${element.id}">
+                <i class="${icon} text-white/80 text-base flex-shrink-0"></i>
+                <span class="text-white/90 text-sm font-sans truncate">${name}</span>
+            </div>
+            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button class="layer-move-up text-white/60 hover:text-white hover:bg-white/10 rounded p-1 transition-all" 
+                        data-layer-id="${element.id}" 
+                        ${isAtTop ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''}>
+                    <i class="ri-arrow-up-line text-sm"></i>
+                </button>
+                <button class="layer-move-down text-white/60 hover:text-white hover:bg-white/10 rounded p-1 transition-all" 
+                        data-layer-id="${element.id}"
+                        ${isAtBottom ? 'disabled style="opacity: 0.3; cursor: not-allowed;"' : ''}>
+                    <i class="ri-arrow-down-line text-sm"></i>
+                </button>
+                <button class="layer-delete text-white/60 hover:text-red-500 hover:bg-white/10 rounded p-1 transition-all" data-layer-id="${element.id}">
+                    <i class="ri-delete-bin-line text-sm"></i>
+                </button>
+            </div>
+        `
+        
+        // Add event listeners
+        const selectArea = layerDiv.querySelector('[data-layer-select]')
+        selectArea.addEventListener('click', (e) => {
+            e.stopPropagation()
+            this.selectLayer(element.id)
+        })
+        
+        const moveUpBtn = layerDiv.querySelector('.layer-move-up')
+        if (moveUpBtn && !moveUpBtn.disabled) {
+            moveUpBtn.addEventListener('click', (e) => {
+                e.stopPropagation()
+                this.moveLayerUp(element.id)
+            })
+        }
+        
+        const moveDownBtn = layerDiv.querySelector('.layer-move-down')
+        if (moveDownBtn && !moveDownBtn.disabled) {
+            moveDownBtn.addEventListener('click', (e) => {
+                e.stopPropagation()
+                this.moveLayerDown(element.id)
+            })
+        }
+        
+        const deleteBtn = layerDiv.querySelector('.layer-delete')
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            this.deleteLayer(element.id)
+        })
+        
+        return layerDiv
+    }
+    
+    getElementIcon(type) {
+        const icons = {
+            'square': 'ri-square-line',
+            'circle': 'ri-circle-line',
+            'line': 'ri-subtract-line',
+            'text': 'ri-text'
+        }
+        return icons[type] || 'ri-shape-line'
+    }
+    
+    getElementName(element) {
+        if (element.type === 'text') {
+            const text = element.text || 'Text'
+            return text.length > 15 ? text.substring(0, 15) + '...' : text
+        }
+        return element.type.charAt(0).toUpperCase() + element.type.slice(1)
+    }
+    
+    selectLayer(layerId) {
+        this.selectedLayerId = layerId
+        
+        if (this.onLayerSelect) {
+            this.onLayerSelect(layerId)
+        }
+        
+        // Update visual selection
+        this.updateLayersList()
+    }
+    
+    moveLayerUp(layerId) {
+        const elements = this.getElements()
+        const index = elements.findIndex(el => el.id === layerId)
+        
+        if (index < elements.length - 1) {
+            // Swap with next element (higher z-index)
+            const temp = elements[index]
+            elements[index] = elements[index + 1]
+            elements[index + 1] = temp
+            
+            this.setElements(elements)
+            this.renderCallback()
+            this.updateLayersList()
+        }
+    }
+    
+    moveLayerDown(layerId) {
+        const elements = this.getElements()
+        const index = elements.findIndex(el => el.id === layerId)
+        
+        if (index > 0) {
+            // Swap with previous element (lower z-index)
+            const temp = elements[index]
+            elements[index] = elements[index - 1]
+            elements[index - 1] = temp
+            
+            this.setElements(elements)
+            this.renderCallback()
+            this.updateLayersList()
+        }
+    }
+    
+    deleteLayer(layerId) {
+        if (this.onLayerDelete) {
+            this.onLayerDelete(layerId)
+        }
+        
+        // Update layers list
+        this.updateLayersList()
+    }
+    
+    onSelectionChange(selectedId) {
+        this.selectedLayerId = selectedId
+        this.updateLayersList()
+    }
+}

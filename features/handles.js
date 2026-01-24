@@ -373,6 +373,7 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                     }
                 }
                 renderCallback()
+                if (syncCallback) syncCallback()
                 return
                 
             } else if (corner === 'end') {
@@ -402,6 +403,7 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                     }
                 }
                 renderCallback()
+                if (syncCallback) syncCallback()
                 return
             }
         } else if (element.type === 'text') {
@@ -465,6 +467,7 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
             }
             
             renderCallback()
+            if (syncCallback) syncCallback()
             return
         }
         
@@ -481,6 +484,7 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
         }
         
         renderCallback()
+        if (syncCallback) syncCallback()
     }
     
     function onMouseUp() {

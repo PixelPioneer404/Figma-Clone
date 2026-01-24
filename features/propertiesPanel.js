@@ -1,8 +1,11 @@
+import { deleteElement } from './deleteElement.js'
+
 export class PropertiesPanel {
-    constructor(getElements, setElements, renderCallback) {
+    constructor(getElements, setElements, renderCallback, onDelete) {
         this.getElements = getElements
         this.setElements = setElements
         this.renderCallback = renderCallback
+        this.onDelete = onDelete
         this.selectedElement = null
         this.isVisible = false
         this.isUpdatingFromCanvas = false
@@ -12,6 +15,7 @@ export class PropertiesPanel {
         this.toggleBtn = document.getElementById('panel-toggle-btn')
         this.closeBtn = document.getElementById('panel-close-btn')
         this.panelContent = document.getElementById('panel-content')
+        this.deleteBtn = document.getElementById('delete-element-btn')
         
         // Get all input elements
         this.inputs = {
@@ -45,6 +49,11 @@ export class PropertiesPanel {
         // Close button click - hides panel
         this.closeBtn.addEventListener('click', () => {
             this.hide()
+        })
+        
+        // Delete button click - deletes selected element
+        this.deleteBtn.addEventListener('click', () => {
+            this.deleteSelectedElement()
         })
         
         // Add input event listeners for bidirectional sync
@@ -157,6 +166,7 @@ export class PropertiesPanel {
     
     enable() {
         this.panelContent.classList.remove('opacity-50', 'pointer-events-none')
+        this.deleteBtn.disabled = false
         Object.values(this.inputs).forEach(input => {
             input.disabled = false
         })
@@ -164,9 +174,25 @@ export class PropertiesPanel {
     
     disable() {
         this.panelContent.classList.add('opacity-50', 'pointer-events-none')
+        this.deleteBtn.disabled = true
         Object.values(this.inputs).forEach(input => {
             input.disabled = true
         })
+        // Clear all input values when disabling
+        this.clearPanelValues()
+    }
+    
+    clearPanelValues() {
+        // Clear all inputs to blank/default state
+        this.inputs.width.value = ''
+        this.inputs.height.value = ''
+        this.inputs.rotation.value = ''
+        this.inputs.borderRadius.value = ''
+        this.inputs.bgColor.value = '#ffffff'
+        this.inputs.strokeColor.value = '#000000'
+        this.inputs.strokeWidth.value = ''
+        this.inputs.textContent.value = ''
+        this.inputs.fontSize.value = ''
     }
     
     // Update element properties and re-render
@@ -313,5 +339,27 @@ export class PropertiesPanel {
             const hex = x.toString(16)
             return hex.length === 1 ? '0' + hex : hex
         }).join('')
+    }
+    
+    deleteSelectedElement() {
+        if (!this.selectedElement) return
+        
+        const elements = this.getElements()
+        const updatedElements = deleteElement(this.selectedElement.id, elements)
+        this.setElements(updatedElements)
+        
+        // Notify parent component about deletion first (to clear selectedItemId)
+        if (this.onDelete) {
+            this.onDelete()
+        }
+        
+        // Clear selection locally
+        this.selectedElement = null
+        
+        // Re-render canvas
+        this.renderCallback()
+        
+        // Call onSelectionChange with null to properly disable the panel
+        this.onSelectionChange(null)
     }
 }

@@ -12,6 +12,15 @@
 
 <body>
     <div id="canvas" class="w-screen h-screen overflow-hidden canvas-bg relative"></div>
+    
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-(--menu-bg) px-6 py-4 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-white/5 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300 z-[9999]">
+        <div class="flex items-center gap-3">
+            <div class="w-6 h-6 border-3 border-white/20 border-t-white rounded-full animate-spin"></div>
+            <span class="text-white font-sans text-sm">Exporting...</span>
+        </div>
+    </div>
+    
     <div id="tabs"
         class="fixed top-15 left-1/2 -translate-x-1/2 font-sans bg-(--menu-bg) backdrop-blur-xl rounded-full border-white/20 shadow-lg flex p-2 justify-center items-center h-13 *:cursor-pointer">
         <div id="tab-indicator" class="absolute h-[calc(100%-16px)] rounded-full bg-(--canvas-bg) transition-all duration-300 ease-out"></div>
@@ -67,6 +76,27 @@
     </div>
 
     <!-- Properties Panel Toggle Button -->
+    <!-- Layers Panel Toggle Button -->
+    <button id="layers-toggle-btn" class="fixed top-1/2 -translate-y-1/2 left-2 bg-(--menu-bg) text-white w-10 h-14 rounded-r-xl flex items-center justify-center hover:bg-gray-600 transition-all duration-300 shadow-lg z-[999] border-r border-t border-b border-white/10">
+        <i class="ri-arrow-right-double-fill text-xl"></i>
+    </button>
+
+    <!-- Layers Panel -->
+    <div id="layers-panel" class="fixed top-1/2 -translate-y-1/2 left-[40px] bg-(--menu-bg) w-[280px] rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] border border-white/5 transition-all duration-300 ease-out -translate-x-[calc(100%+40px)] z-[998] backdrop-blur-sm max-h-[80vh] flex flex-col">
+        <!-- Panel Header -->
+        <div class="flex items-center justify-between px-5 py-4 border-b border-white/10">
+            <h3 class="text-white font-sans font-semibold text-lg tracking-tight">Layers</h3>
+            <button id="layers-close-btn" class="text-white/60 hover:text-white hover:bg-white/10 transition-all rounded-lg p-1.5">
+                <i class="ri-arrow-left-double-fill text-xl"></i>
+            </button>
+        </div>
+
+        <!-- Layers List -->
+        <div id="layers-list" class="px-3 py-3 space-y-1 overflow-y-auto flex-1">
+            <!-- Layers will be populated dynamically -->
+        </div>
+    </div>
+
     <button id="panel-toggle-btn" class="fixed top-1/2 -translate-y-1/2 right-2 bg-(--menu-bg) text-white w-10 h-14 rounded-l-xl flex items-center justify-center hover:bg-gray-600 transition-all duration-300 shadow-lg z-[999] border-l border-t border-b border-white/10">
         <i class="ri-arrow-left-double-fill text-xl"></i>
     </button>
@@ -76,9 +106,14 @@
         <!-- Panel Header -->
         <div class="flex items-center justify-between px-5 py-4 border-b border-white/10">
             <h3 class="text-white font-sans font-semibold text-lg tracking-tight">Properties</h3>
-            <button id="panel-close-btn" class="text-white/60 hover:text-white hover:bg-white/10 transition-all rounded-lg p-1.5">
-                <i class="ri-arrow-right-double-fill text-xl"></i>
-            </button>
+            <div class="flex items-center gap-2">
+                <button id="delete-element-btn" class="text-white hover:text-red-500 cursor-pointer disabled:cursor-default disabled:text-gray-500 transition-all rounded-lg p-1.5">
+                    <i class="ri-delete-bin-line text-xl"></i>
+                </button>
+                <button id="panel-close-btn" class="text-white/60 hover:text-white hover:bg-white/10 transition-all rounded-lg p-1.5">
+                    <i class="ri-arrow-right-double-fill text-xl"></i>
+                </button>
+            </div>
         </div>
 
         <!-- Panel Content -->

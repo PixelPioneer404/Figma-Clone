@@ -3,6 +3,9 @@ import { toolSelector } from './features/toolsSelect.js'
 import { switchTab } from './features/switchTab.js'
 import { createResizeHandles, createRotationHandle, handleResize, handleRotation } from './features/handles.js'
 import { PropertiesPanel } from './features/propertiesPanel.js'
+import { LayersPanel } from './features/layersPanel.js'
+import { deleteElement } from './features/deleteElement.js'
+import { exportJSON, exportHTML } from './features/export.js'
 
 let elements = []
 let id = 0
@@ -11,6 +14,38 @@ let tab = 'create'
 let currentTool = 'select'
 let selectedItemId = null
 let propertiesPanel = null
+let layersPanel = null
+
+// LocalStorage functions
+function saveToLocalStorage() {
+    try {
+        localStorage.setItem('figmaElements', JSON.stringify(elements))
+        localStorage.setItem('figmaIdCounter', id.toString())
+    } catch (error) {
+        console.error('Error saving to localStorage:', error)
+    }
+}
+
+function loadFromLocalStorage() {
+    try {
+        const savedElements = localStorage.getItem('figmaElements')
+        const savedId = localStorage.getItem('figmaIdCounter')
+        
+        if (savedElements) {
+            elements = JSON.parse(savedElements)
+            // Clear selection state on load
+            elements = elements.map(el => ({ ...el, isSelected: false }))
+        }
+        
+        if (savedId) {
+            id = parseInt(savedId)
+        }
+    } catch (error) {
+        console.error('Error loading from localStorage:', error)
+        elements = []
+        id = 0
+    }
+}
 
 // DOM selections
 const canvas = document.querySelector('#canvas')
@@ -21,6 +56,10 @@ const lineTool = document.querySelector('#line');
 const textTool = document.querySelector('#text');
 const toolsTooltip = document.querySelector('#tools-tooltip')
 const tabs = document.querySelectorAll('.tab')
+const exportTab = document.querySelector('#export')
+const jsonExportBtn = document.querySelector('#json')
+const htmlExportBtn = document.querySelector('#html')
+const loadingIndicator = document.querySelector('#loading-indicator')
 
 const toolsTooltipData = [
     { element: selectTool, label: 'Selection (V)' },
@@ -34,26 +73,157 @@ const toolsTooltipData = [
 propertiesPanel = new PropertiesPanel(
     () => elements,
     (newElements) => { elements = newElements },
-    renderElements
+    renderElements,
+    () => {
+        // onDelete callback - reset selectedItemId when element is deleted
+        selectedItemId = null
+        if (layersPanel) {
+            layersPanel.updateLayersList()
+        }
+    }
+)
+
+// Initialize Layers Panel
+layersPanel = new LayersPanel(
+    () => elements,
+    (newElements) => { elements = newElements },
+    renderElements,
+    (layerId) => {
+        // onLayerSelect callback
+        selectedItemId = layerId
+        elements = elements.map((elem) => {
+            if (elem.id === layerId) {
+                return { ...elem, isSelected: true }
+            } else {
+                return { ...elem, isSelected: false }
+            }
+        })
+        renderElements()
+        if (propertiesPanel) {
+            propertiesPanel.onSelectionChange(layerId)
+        }
+    },
+    (layerId) => {
+        // onLayerDelete callback
+        elements = deleteElement(layerId, elements)
+        selectedItemId = null
+        renderElements()
+        if (propertiesPanel) {
+            propertiesPanel.onSelectionChange(null)
+        }
+        layersPanel.updateLayersList()
+    }
 )
 
 handleToolsToolTip(toolsTooltip, toolsTooltipData)
 
 toolSelector(document.querySelector(`#${currentTool}`))
 
+// Load saved data from localStorage
+loadFromLocalStorage()
+if (elements.length > 0) {
+    renderElements()
+} else {
+    // Initialize export tab state on load
+    updateExportTabState()
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // Check if user is typing in an input or contenteditable element
+    const isTyping = e.target.tagName === 'INPUT' || 
+                     e.target.tagName === 'TEXTAREA' || 
+                     e.target.isContentEditable
+
+    // Tool selection shortcuts (only in create tab and not typing)
+    if (tab === 'create' && !isTyping) {
+        let newTool = null
+        let toolElement = null
+
+        switch(e.key.toLowerCase()) {
+            case 'v':
+                newTool = 'select'
+                toolElement = selectTool
+                break
+            case 't':
+                newTool = 'text'
+                toolElement = textTool
+                break
+            case 's':
+                newTool = 'square'
+                toolElement = squareTool
+                break
+            case 'c':
+                newTool = 'circle'
+                toolElement = circleTool
+                break
+            case 'l':
+                newTool = 'line'
+                toolElement = lineTool
+                break
+        }
+
+        if (newTool && toolElement) {
+            // Clear previous tool styling
+            const previousToolElement = document.querySelector(`#${currentTool}`)
+            if (previousToolElement) {
+                previousToolElement.style.backgroundColor = 'transparent'
+            }
+
+            // Set new tool
+            currentTool = newTool
+            mode = newTool === 'select' ? 'select' : 'draw'
+            toolElement.style.backgroundColor = '#0E81E6'
+            toolSelector(toolElement)
+
+            // Update cursor
+            if (mode === 'draw') {
+                canvas.style.cursor = 'crosshair'
+            } else {
+                canvas.style.cursor = 'default'
+            }
+
+            e.preventDefault()
+        }
+    }
+
+    // Delete selected element (works everywhere except when typing)
+    if ((e.key === 'Backspace' || e.key === 'Delete') && !isTyping) {
+        if (selectedItemId !== null) {
+            // Delete the selected element
+            elements = deleteElement(selectedItemId, elements)
+            selectedItemId = null
+            renderElements()
+
+            // Update properties panel
+            if (propertiesPanel) {
+                propertiesPanel.onSelectionChange(null)
+            }
+
+            // Update layers panel
+            if (layersPanel) {
+                layersPanel.updateLayersList()
+                layersPanel.onSelectionChange(null)
+            }
+
+            e.preventDefault()
+        }
+    }
+})
+
 // Dimension panel
 function createDimensionPanel(width, height, rotation = 0, isLine = false) {
     const div = document.createElement('div')
     div.classList.add("dimension", "pointer-events-none", "z-[999]", "text-white", "font-sans", "text-xs", "absolute", "px-3", "h-6", "rounded", "bg-blue-500", "flex", "justify-center", "items-center", "min-w-15", "whitespace-nowrap")
-    
+
     let absWidth = Math.abs(width)
     let absHeight = Math.abs(height)
     div.textContent = isLine ? `${Math.round(absWidth)}` : `${Math.round(absWidth)} × ${Math.round(absHeight)}`
-    
+
     // Switch which local edge to attach to based on which faces downward in world space
     // Counter-rotate the panel to keep text horizontal and readable
     const normalizedRotation = ((rotation || 0) % 360 + 360) % 360
-    
+
     if (normalizedRotation >= 45 && normalizedRotation < 135) {
         // Rotated ~90° - local right edge faces down
         div.style.left = '100%'
@@ -93,17 +263,17 @@ function createDimensionPanel(width, height, rotation = 0, isLine = false) {
         div.style.marginRight = '0'
         div.style.transform = `translateX(-50%) rotate(${-rotation}deg)`
     }
-    
+
     return div
 }
 function updateDimensionPanel(panel, width, height, rotation = 0, isLine = false) {
     let absWidth = Math.abs(width)
     let absHeight = Math.abs(height)
     panel.textContent = isLine ? `${Math.round(absWidth)}` : `${Math.round(absWidth)} × ${Math.round(absHeight)}`
-    
+
     // Update position based on rotation
     const normalizedRotation = ((rotation || 0) % 360 + 360) % 360
-    
+
     if (normalizedRotation >= 45 && normalizedRotation < 135) {
         // Rotated ~90° - local right edge faces down
         panel.style.left = '100%'
@@ -181,7 +351,7 @@ textTool.addEventListener('click', () => {
 canvas.addEventListener('mousedown', handleMouseDown)
 function handleMouseDown(e) {
     const target = e.target
-    
+
     // Check if clicking on resize handle
     if (target.classList.contains('resize-handle')) {
         const syncCallback = () => {
@@ -192,7 +362,7 @@ function handleMouseDown(e) {
         handleResize(e, target, elements, renderElements, syncCallback)
         return
     }
-    
+
     // Check if clicking on rotation handle
     if (target.classList.contains('rotation-handle')) {
         const syncCallback = () => {
@@ -203,17 +373,17 @@ function handleMouseDown(e) {
         handleRotation(e, target, elements, renderElements, syncCallback)
         return
     }
-    
+
     console.log(tab, mode)
     if (tab === 'create' && mode === 'draw') {
         // Handle text tool differently - single click placement
         if (currentTool === 'text') {
             const x = e.clientX
             const y = e.clientY
-            
+
             id = id + 1
             const currentId = id
-            
+
             // Create text element
             const textElement = {
                 id: currentId,
@@ -233,24 +403,27 @@ function handleMouseDown(e) {
                     borderRadius: '0px'
                 }
             }
-            
+
             elements.push(textElement)
             selectedItemId = currentId
-            
+
             // Switch to select mode
             mode = 'select'
             currentTool = 'select'
             textTool.style.backgroundColor = 'transparent'
             selectTool.style.backgroundColor = '#0E81E6'
             toolSelector(document.querySelector('#select'))
-            
+
             renderElements()
-            
-            // Sync properties panel to newly created text element
+
+            // Sync properties panel and layers panel to newly created text element
             if (propertiesPanel) {
                 propertiesPanel.onSelectionChange(currentId)
             }
-            
+            if (layersPanel) {
+                layersPanel.onSelectionChange(currentId)
+            }
+
             // Focus the text element after rendering
             setTimeout(() => {
                 const textDiv = canvas.querySelector(`[data-element="${currentId}"] .text-content`)
@@ -264,10 +437,10 @@ function handleMouseDown(e) {
                     selection.addRange(range)
                 }
             }, 0)
-            
+
             return
         }
-        
+
         canvas.style.cursor = 'crosshair' //for selection tool
         let type = currentTool
         let x = e.clientX
@@ -361,9 +534,12 @@ function handleMouseDown(e) {
                     return { ...rest, isSelected: false }
                 }
             })
-            // Sync properties panel
+            // Sync properties panel and layers panel
             if (propertiesPanel) {
                 propertiesPanel.onSelectionChange(id)
+            }
+            if (layersPanel) {
+                layersPanel.onSelectionChange(id)
             }
         }
 
@@ -410,7 +586,7 @@ function handleMouseDown(e) {
         // Check if clicked on canvas (not an element)
         // Need to check if target or its parent has dataset.element (for text-content)
         const elementDiv = target.closest('[data-element]')
-        
+
         if (!elementDiv || target === canvas) {
             console.log('Clicked on canvas, deselecting all')
 
@@ -420,10 +596,13 @@ function handleMouseDown(e) {
                 return { ...rest, isSelected: false }
             })
             renderElements()
-            
-            // Sync properties panel
+
+            // Sync properties panel and layers panel
             if (propertiesPanel) {
                 propertiesPanel.onSelectionChange(null)
+            }
+            if (layersPanel) {
+                layersPanel.onSelectionChange(null)
             }
             return
         }
@@ -454,10 +633,13 @@ function handleMouseDown(e) {
         })
 
         renderElements()
-        
-        // Sync properties panel
+
+        // Sync properties panel and layers panel
         if (propertiesPanel) {
             propertiesPanel.onSelectionChange(selectedItemId)
+        }
+        if (layersPanel) {
+            layersPanel.onSelectionChange(selectedItemId)
         }
 
         function handleMouseMove(e) {
@@ -514,10 +696,37 @@ function handleMouseDown(e) {
 function renderElements() {
     canvas.querySelectorAll('[data-element]').forEach(el => el.remove())
 
-    elements.forEach((el) => {
+    elements.forEach((el, index) => {
         const div = createElement(el)
+        // Set z-index based on position in array
+        div.style.zIndex = index
         canvas.appendChild(div)
     })
+
+    // Update layers panel
+    if (layersPanel) {
+        layersPanel.updateLayersList()
+    }
+
+    // Update export tab state
+    updateExportTabState()
+
+    // Save to localStorage
+    saveToLocalStorage()
+
+    console.log(elements)
+}
+
+function updateExportTabState() {
+    if (elements.length === 0) {
+        exportTab.style.opacity = '0.5'
+        exportTab.style.pointerEvents = 'none'
+        exportTab.style.cursor = 'not-allowed'
+    } else {
+        exportTab.style.opacity = '1'
+        exportTab.style.pointerEvents = 'auto'
+        exportTab.style.cursor = 'pointer'
+    }
 }
 
 function createElement(element) {
@@ -544,7 +753,7 @@ function createElement(element) {
         textContent.style.minHeight = '20px'
         textContent.style.display = 'inline-block'
         textContent.style.userSelect = isNewlyCreated ? 'text' : 'none'
-        
+
         // Update element text on input
         textContent.addEventListener('input', (e) => {
             const elementIndex = elements.findIndex(el => el.id === element.id)
@@ -552,13 +761,13 @@ function createElement(element) {
                 elements[elementIndex].text = e.target.textContent
             }
         })
-        
+
         // Save and exit edit mode on blur
         textContent.addEventListener('blur', (e) => {
             textContent.setAttribute('contenteditable', 'false')
             textContent.style.cursor = 'move'
             textContent.style.userSelect = 'none'
-            
+
             // Update element text and remove isNewlyCreated flag
             const elementIndex = elements.findIndex(el => el.id === element.id)
             if (elementIndex !== -1) {
@@ -566,19 +775,19 @@ function createElement(element) {
                 delete elements[elementIndex].isNewlyCreated
             }
         })
-        
+
         // Stop propagation when actively editing
         textContent.addEventListener('mousedown', (e) => {
             if (textContent.getAttribute('contenteditable') === 'true') {
                 e.stopPropagation()
             }
         })
-        
+
         // If element is newly created, focus and select text
         if (isNewlyCreated) {
             setTimeout(() => {
                 textContent.focus()
-                
+
                 // Select all text
                 const range = document.createRange()
                 range.selectNodeContents(textContent)
@@ -587,7 +796,7 @@ function createElement(element) {
                 selection.addRange(range)
             }, 0)
         }
-        
+
         div.appendChild(textContent)
     }
 
@@ -595,16 +804,16 @@ function createElement(element) {
     if (element.isSelected) {
         const isLine = element.type === 'line'
         const isText = element.type === 'text'
-        
+
         if (!isText) {
             const dimensionPanel = createDimensionPanel(element.width, element.height, element.rotation, isLine)
             div.appendChild(dimensionPanel)
         }
-        
+
         // Add resize handles
         const resizeHandles = createResizeHandles(element)
         resizeHandles.forEach(handle => div.appendChild(handle))
-        
+
         // Add rotation handle (not for lines or text)
         if (!isLine && !isText) {
             const rotationHandle = createRotationHandle(element)
@@ -626,7 +835,7 @@ function applyStyles(item, stylingInfo) {
     item.style.backgroundColor = stylingInfo.styles.backgroundColor
     item.style.borderRadius = stylingInfo.styles.borderRadius
     item.style.cursor = 'move'
-    
+
     // Add selection outline (separate from border)
     if (stylingInfo.isSelected) {
         item.style.outline = '2px solid #0E81E6'
@@ -639,7 +848,7 @@ function applyStyles(item, stylingInfo) {
     if (stylingInfo.type === 'text') {
         item.style.top = `${stylingInfo.y}px`
         item.style.left = `${stylingInfo.x}px`
-        
+
         // Use auto sizing for text elements
         if (stylingInfo.width === 'auto' || !stylingInfo.width) {
             item.style.width = 'auto'
@@ -647,13 +856,13 @@ function applyStyles(item, stylingInfo) {
         } else {
             item.style.width = `${stylingInfo.width}px`
         }
-        
+
         if (stylingInfo.height === 'auto' || !stylingInfo.height) {
             item.style.height = 'auto'
         } else {
             item.style.height = `${stylingInfo.height}px`
         }
-        
+
         item.style.display = 'inline-block'
     }
     // Handle lines differently
@@ -663,7 +872,7 @@ function applyStyles(item, stylingInfo) {
         item.style.width = `${stylingInfo.width}px`
         item.style.height = `${stylingInfo.height}px`
         item.style.transformOrigin = stylingInfo.styles.transformOrigin || '0 0'
-        
+
         // Apply line-specific transform or rotation
         if (stylingInfo.rotation !== undefined) {
             item.style.transform = `rotate(${stylingInfo.rotation}deg)`
@@ -686,7 +895,7 @@ function applyStyles(item, stylingInfo) {
 
         item.style.width = `${Math.abs(stylingInfo.width)}px`
         item.style.height = `${Math.abs(stylingInfo.height)}px`
-        
+
         // Apply rotation for shapes
         if (stylingInfo.rotation !== undefined) {
             item.style.transform = `rotate(${stylingInfo.rotation}deg)`
@@ -713,8 +922,17 @@ tabs.forEach((tabEl) => {
     tabEl.addEventListener('click', e => {
         const el = e.target
         tab = el.id
-        if(tab === 'export') canvas.style.cursor = 'default'
+        if (tab === 'export') canvas.style.cursor = 'default'
         else canvas.style.cursor = 'crosshair'
         switchTab(el)
     })
+})
+
+// Export button event listeners
+jsonExportBtn.addEventListener('click', () => {
+    exportJSON(elements, loadingIndicator, jsonExportBtn, htmlExportBtn)
+})
+
+htmlExportBtn.addEventListener('click', () => {
+    exportHTML(elements, loadingIndicator, jsonExportBtn, htmlExportBtn)
 })
