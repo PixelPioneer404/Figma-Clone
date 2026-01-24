@@ -7,6 +7,7 @@ import { LayersPanel } from './features/layersPanel.js'
 import { deleteElement } from './features/deleteElement.js'
 import { exportJSON, exportHTML } from './features/export.js'
 
+// Global Variables
 let elements = []
 let id = 0
 let mode = 'select'
@@ -16,7 +17,6 @@ let selectedItemId = null
 let propertiesPanel = null
 let layersPanel = null
 
-// LocalStorage functions
 function saveToLocalStorage() {
     try {
         localStorage.setItem('figmaElements', JSON.stringify(elements))
@@ -30,13 +30,12 @@ function loadFromLocalStorage() {
     try {
         const savedElements = localStorage.getItem('figmaElements')
         const savedId = localStorage.getItem('figmaIdCounter')
-        
+
         if (savedElements) {
             elements = JSON.parse(savedElements)
-            // Clear selection state on load
             elements = elements.map(el => ({ ...el, isSelected: false }))
         }
-        
+
         if (savedId) {
             id = parseInt(savedId)
         }
@@ -47,7 +46,26 @@ function loadFromLocalStorage() {
     }
 }
 
-// DOM selections
+function disableUIPointerEvents() {
+    document.getElementById('tabs')?.style.setProperty('pointer-events', 'none')
+    document.getElementById('tools')?.style.setProperty('pointer-events', 'none')
+    document.getElementById('layers-panel')?.style.setProperty('pointer-events', 'none')
+    document.getElementById('properties-panel')?.style.setProperty('pointer-events', 'none')
+    document.getElementById('loading-indicator')?.style.setProperty('pointer-events', 'none')
+}
+
+function enableUIPointerEvents() {
+    document.getElementById('tabs')?.style.setProperty('pointer-events', 'auto')
+    document.getElementById('tools')?.style.setProperty('pointer-events', 'auto')
+    document.getElementById('layers-panel')?.style.setProperty('pointer-events', 'auto')
+    document.getElementById('properties-panel')?.style.setProperty('pointer-events', 'auto')
+    const loadingIndicator = document.getElementById('loading-indicator')
+    if (loadingIndicator && loadingIndicator.style.opacity !== '1') {
+        loadingIndicator.style.setProperty('pointer-events', 'none')
+    }
+}
+
+// Document Selectors
 const canvas = document.querySelector('#canvas')
 const selectTool = document.querySelector('#select');
 const squareTool = document.querySelector('#square');
@@ -60,6 +78,9 @@ const exportTab = document.querySelector('#export')
 const jsonExportBtn = document.querySelector('#json')
 const htmlExportBtn = document.querySelector('#html')
 const loadingIndicator = document.querySelector('#loading-indicator')
+const infoBtn = document.getElementById('info-btn')
+const infoModal = document.getElementById('info-modal')
+const infoCloseBtn = document.getElementById('info-close-btn')
 
 const toolsTooltipData = [
     { element: selectTool, label: 'Selection (V)' },
@@ -69,27 +90,24 @@ const toolsTooltipData = [
     { element: textTool, label: 'Text (T)' }
 ]
 
-// Initialize Properties Panel
+
+//Panels Initialization
 propertiesPanel = new PropertiesPanel(
     () => elements,
     (newElements) => { elements = newElements },
     renderElements,
     () => {
-        // onDelete callback - reset selectedItemId when element is deleted
         selectedItemId = null
         if (layersPanel) {
             layersPanel.updateLayersList()
         }
     }
 )
-
-// Initialize Layers Panel
 layersPanel = new LayersPanel(
     () => elements,
     (newElements) => { elements = newElements },
     renderElements,
     (layerId) => {
-        // onLayerSelect callback
         selectedItemId = layerId
         elements = elements.map((elem) => {
             if (elem.id === layerId) {
@@ -104,7 +122,6 @@ layersPanel = new LayersPanel(
         }
     },
     (layerId) => {
-        // onLayerDelete callback
         elements = deleteElement(layerId, elements)
         selectedItemId = null
         renderElements()
@@ -119,28 +136,24 @@ handleToolsToolTip(toolsTooltip, toolsTooltipData)
 
 toolSelector(document.querySelector(`#${currentTool}`))
 
-// Load saved data from localStorage
 loadFromLocalStorage()
 if (elements.length > 0) {
     renderElements()
 } else {
-    // Initialize export tab state on load
     updateExportTabState()
 }
 
-// Keyboard shortcuts
+// Keyboard Shortcuts
 document.addEventListener('keydown', (e) => {
-    // Check if user is typing in an input or contenteditable element
-    const isTyping = e.target.tagName === 'INPUT' || 
-                     e.target.tagName === 'TEXTAREA' || 
-                     e.target.isContentEditable
+    const isTyping = e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
+        e.target.isContentEditable
 
-    // Tool selection shortcuts (only in create tab and not typing)
     if (tab === 'create' && !isTyping) {
         let newTool = null
         let toolElement = null
 
-        switch(e.key.toLowerCase()) {
+        switch (e.key.toLowerCase()) {
             case 'v':
                 newTool = 'select'
                 toolElement = selectTool
@@ -164,19 +177,16 @@ document.addEventListener('keydown', (e) => {
         }
 
         if (newTool && toolElement) {
-            // Clear previous tool styling
             const previousToolElement = document.querySelector(`#${currentTool}`)
             if (previousToolElement) {
                 previousToolElement.style.backgroundColor = 'transparent'
             }
 
-            // Set new tool
             currentTool = newTool
             mode = newTool === 'select' ? 'select' : 'draw'
             toolElement.style.backgroundColor = '#0E81E6'
             toolSelector(toolElement)
 
-            // Update cursor
             if (mode === 'draw') {
                 canvas.style.cursor = 'crosshair'
             } else {
@@ -187,20 +197,16 @@ document.addEventListener('keydown', (e) => {
         }
     }
 
-    // Delete selected element (works everywhere except when typing)
     if ((e.key === 'Backspace' || e.key === 'Delete') && !isTyping) {
         if (selectedItemId !== null) {
-            // Delete the selected element
             elements = deleteElement(selectedItemId, elements)
             selectedItemId = null
             renderElements()
 
-            // Update properties panel
             if (propertiesPanel) {
                 propertiesPanel.onSelectionChange(null)
             }
 
-            // Update layers panel
             if (layersPanel) {
                 layersPanel.updateLayersList()
                 layersPanel.onSelectionChange(null)
@@ -209,9 +215,64 @@ document.addEventListener('keydown', (e) => {
             e.preventDefault()
         }
     }
+
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !isTyping) {
+        if (selectedItemId !== null) {
+            const selectedElement = elements.find(el => el.id === selectedItemId)
+            if (selectedElement) {
+                let newX = selectedElement.x
+                let newY = selectedElement.y
+
+                switch (e.key) {
+                    case 'ArrowUp':
+                        newY -= 5
+                        break
+                    case 'ArrowDown':
+                        newY += 5
+                        break
+                    case 'ArrowLeft':
+                        newX -= 5
+                        break
+                    case 'ArrowRight':
+                        newX += 5
+                        break
+                }
+
+                const canvasWidth = canvas.offsetWidth
+                const canvasHeight = canvas.offsetHeight
+
+                if (selectedElement.type === 'line') {
+                    newX = Math.max(0, Math.min(newX, canvasWidth))
+                    newY = Math.max(0, Math.min(newY, canvasHeight))
+                } else if (selectedElement.type === 'text') {
+                    newX = Math.max(0, newX)
+                    newY = Math.max(0, newY)
+                } else {
+                    const elementWidth = Math.abs(selectedElement.width)
+                    const elementHeight = Math.abs(selectedElement.height)
+                    newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth))
+                    newY = Math.max(0, Math.min(newY, canvasHeight - elementHeight))
+                }
+
+                elements = elements.map(el => {
+                    if (el.id === selectedItemId) {
+                        return { ...el, x: newX, y: newY }
+                    }
+                    return el
+                })
+
+                renderElements()
+
+                if (propertiesPanel) {
+                    propertiesPanel.onSelectionChange(selectedItemId, true)
+                }
+
+                e.preventDefault()
+            }
+        }
+    }
 })
 
-// Dimension panel
 function createDimensionPanel(width, height, rotation = 0, isLine = false) {
     const div = document.createElement('div')
     div.classList.add("dimension", "pointer-events-none", "z-[999]", "text-white", "font-sans", "text-xs", "absolute", "px-3", "h-6", "rounded", "bg-blue-500", "flex", "justify-center", "items-center", "min-w-15", "whitespace-nowrap")
@@ -220,12 +281,9 @@ function createDimensionPanel(width, height, rotation = 0, isLine = false) {
     let absHeight = Math.abs(height)
     div.textContent = isLine ? `${Math.round(absWidth)}` : `${Math.round(absWidth)} × ${Math.round(absHeight)}`
 
-    // Switch which local edge to attach to based on which faces downward in world space
-    // Counter-rotate the panel to keep text horizontal and readable
     const normalizedRotation = ((rotation || 0) % 360 + 360) % 360
 
     if (normalizedRotation >= 45 && normalizedRotation < 135) {
-        // Rotated ~90° - local right edge faces down
         div.style.left = '100%'
         div.style.top = '50%'
         div.style.right = ''
@@ -234,7 +292,6 @@ function createDimensionPanel(width, height, rotation = 0, isLine = false) {
         div.style.marginTop = '0'
         div.style.transform = `translate(-50%, -50%) rotate(${-rotation}deg)`
     } else if (normalizedRotation >= 135 && normalizedRotation < 225) {
-        // Rotated ~180° - local top edge faces down
         div.style.left = '50%'
         div.style.top = '-32px'
         div.style.right = ''
@@ -243,7 +300,6 @@ function createDimensionPanel(width, height, rotation = 0, isLine = false) {
         div.style.marginTop = '0'
         div.style.transform = `translateX(-50%) rotate(${-rotation}deg)`
     } else if (normalizedRotation >= 225 && normalizedRotation < 315) {
-        // Rotated ~270° - local left edge faces down
         div.style.right = '100%'
         div.style.top = '50%'
         div.style.left = ''
@@ -253,7 +309,6 @@ function createDimensionPanel(width, height, rotation = 0, isLine = false) {
         div.style.marginTop = '0'
         div.style.transform = `translate(50%, -50%) rotate(${-rotation}deg)`
     } else {
-        // Normal - local bottom edge faces down
         div.style.left = '50%'
         div.style.top = ''
         div.style.right = ''
@@ -271,11 +326,9 @@ function updateDimensionPanel(panel, width, height, rotation = 0, isLine = false
     let absHeight = Math.abs(height)
     panel.textContent = isLine ? `${Math.round(absWidth)}` : `${Math.round(absWidth)} × ${Math.round(absHeight)}`
 
-    // Update position based on rotation
     const normalizedRotation = ((rotation || 0) % 360 + 360) % 360
 
     if (normalizedRotation >= 45 && normalizedRotation < 135) {
-        // Rotated ~90° - local right edge faces down
         panel.style.left = '100%'
         panel.style.top = '50%'
         panel.style.right = ''
@@ -285,7 +338,6 @@ function updateDimensionPanel(panel, width, height, rotation = 0, isLine = false
         panel.style.marginRight = '0'
         panel.style.transform = `translate(-50%, -50%) rotate(${-rotation}deg)`
     } else if (normalizedRotation >= 135 && normalizedRotation < 225) {
-        // Rotated ~180° - local top edge faces down
         panel.style.left = '50%'
         panel.style.top = '-32px'
         panel.style.right = ''
@@ -295,7 +347,6 @@ function updateDimensionPanel(panel, width, height, rotation = 0, isLine = false
         panel.style.marginRight = '0'
         panel.style.transform = `translateX(-50%) rotate(${-rotation}deg)`
     } else if (normalizedRotation >= 225 && normalizedRotation < 315) {
-        // Rotated ~270° - local left edge faces down
         panel.style.right = '100%'
         panel.style.top = '50%'
         panel.style.left = ''
@@ -305,7 +356,6 @@ function updateDimensionPanel(panel, width, height, rotation = 0, isLine = false
         panel.style.marginTop = '0'
         panel.style.transform = `translate(50%, -50%) rotate(${-rotation}deg)`
     } else {
-        // Normal - local bottom edge faces down
         panel.style.left = '50%'
         panel.style.top = ''
         panel.style.right = ''
@@ -318,25 +368,25 @@ function updateDimensionPanel(panel, width, height, rotation = 0, isLine = false
 }
 
 selectTool.addEventListener('click', () => {
-    canvas.style.cursor = 'default' //for selection tool
+    canvas.style.cursor = 'default'
     mode = 'select'
     currentTool = 'select'
     console.log('Mode:', mode, '| Tool:', currentTool)
 })
 squareTool.addEventListener('click', () => {
-    canvas.style.cursor = 'default' //for selection tool
+    canvas.style.cursor = 'default'
     mode = 'draw'
     currentTool = 'square'
     console.log('Mode:', mode, '| Tool:', currentTool)
 })
 circleTool.addEventListener('click', () => {
-    canvas.style.cursor = 'default' //for selection tool
+    canvas.style.cursor = 'default'
     mode = 'draw'
     currentTool = 'circle'
     console.log('Mode:', mode, '| Tool:', currentTool)
 })
 lineTool.addEventListener('click', () => {
-    canvas.style.cursor = 'default' //for selection tool
+    canvas.style.cursor = 'default'
     mode = 'draw'
     currentTool = 'line'
     console.log('Mode:', mode, '| Tool:', currentTool)
@@ -352,7 +402,6 @@ canvas.addEventListener('mousedown', handleMouseDown)
 function handleMouseDown(e) {
     const target = e.target
 
-    // Check if clicking on resize handle
     if (target.classList.contains('resize-handle')) {
         const syncCallback = () => {
             if (propertiesPanel && selectedItemId) {
@@ -363,7 +412,6 @@ function handleMouseDown(e) {
         return
     }
 
-    // Check if clicking on rotation handle
     if (target.classList.contains('rotation-handle')) {
         const syncCallback = () => {
             if (propertiesPanel && selectedItemId) {
@@ -376,7 +424,6 @@ function handleMouseDown(e) {
 
     console.log(tab, mode)
     if (tab === 'create' && mode === 'draw') {
-        // Handle text tool differently - single click placement
         if (currentTool === 'text') {
             const x = e.clientX
             const y = e.clientY
@@ -384,7 +431,6 @@ function handleMouseDown(e) {
             id = id + 1
             const currentId = id
 
-            // Create text element
             const textElement = {
                 id: currentId,
                 type: 'text',
@@ -407,7 +453,6 @@ function handleMouseDown(e) {
             elements.push(textElement)
             selectedItemId = currentId
 
-            // Switch to select mode
             mode = 'select'
             currentTool = 'select'
             textTool.style.backgroundColor = 'transparent'
@@ -416,20 +461,17 @@ function handleMouseDown(e) {
 
             renderElements()
 
-            // Sync properties panel and layers panel to newly created text element
             if (propertiesPanel) {
-                propertiesPanel.onSelectionChange(currentId)
+                propertiesPanel.onSelectionChange(currentId, false, true)
             }
             if (layersPanel) {
                 layersPanel.onSelectionChange(currentId)
             }
 
-            // Focus the text element after rendering
             setTimeout(() => {
                 const textDiv = canvas.querySelector(`[data-element="${currentId}"] .text-content`)
                 if (textDiv) {
                     textDiv.focus()
-                    // Select all text
                     const range = document.createRange()
                     range.selectNodeContents(textDiv)
                     const selection = window.getSelection()
@@ -441,7 +483,7 @@ function handleMouseDown(e) {
             return
         }
 
-        canvas.style.cursor = 'crosshair' //for selection tool
+        canvas.style.cursor = 'crosshair'
         let type = currentTool
         let x = e.clientX
         let y = e.clientY
@@ -454,7 +496,6 @@ function handleMouseDown(e) {
             borderRadius: '0px'
         }
 
-        // For lines, we'll store rotation angle
         let angle = 0
 
         id = id + 1
@@ -462,7 +503,6 @@ function handleMouseDown(e) {
 
         const tempDiv = document.createElement('div')
 
-        // Create dimension panel once
         const dimensionPanel = createDimensionPanel(0, 0, 0, type === 'line')
         tempDiv.appendChild(dimensionPanel)
 
@@ -470,7 +510,6 @@ function handleMouseDown(e) {
             width = e.clientX - x
             height = e.clientY - y
 
-            //apply all the properties to the tempDiv
             tempDiv.style.position = 'absolute'
             tempDiv.style.borderWidth = styles.borderWidth
             tempDiv.style.borderColor = styles.borderColor
@@ -486,7 +525,6 @@ function handleMouseDown(e) {
                 styles.borderRadius = '0px'
                 tempDiv.style.borderRadius = styles.borderRadius
 
-                // Update dimension panel for square
                 updateDimensionPanel(dimensionPanel, width, height, 0)
             } else if (currentTool === 'circle') {
                 if (width > 0) tempDiv.style.left = `${x}px`
@@ -498,14 +536,11 @@ function handleMouseDown(e) {
                 styles.borderRadius = '100%'
                 tempDiv.style.borderRadius = styles.borderRadius
 
-                // Update dimension panel for circle
                 updateDimensionPanel(dimensionPanel, width, height, 0)
             } else if (currentTool === 'line') {
-                // Calculate line length and angle for any direction
                 const length = Math.sqrt(width * width + height * height)
                 angle = Math.atan2(height, width) * (180 / Math.PI)
 
-                // Always position at start point
                 tempDiv.style.left = `${x}px`
                 tempDiv.style.top = `${y}px`
                 tempDiv.style.width = `${length}px`
@@ -515,7 +550,6 @@ function handleMouseDown(e) {
                 styles.borderRadius = '0px'
                 tempDiv.style.borderRadius = styles.borderRadius
 
-                // Update dimension panel for line (show only length)
                 updateDimensionPanel(dimensionPanel, length, 0, angle, true)
             }
 
@@ -526,7 +560,6 @@ function handleMouseDown(e) {
             elements = elements.map((el) => {
                 if (el.id === id) {
                     selectedItemId = el.id
-                    // Remove isNewlyCreated flag when selecting
                     const { isNewlyCreated, ...rest } = el
                     return { ...rest, isSelected: true }
                 } else {
@@ -534,9 +567,8 @@ function handleMouseDown(e) {
                     return { ...rest, isSelected: false }
                 }
             })
-            // Sync properties panel and layers panel
             if (propertiesPanel) {
-                propertiesPanel.onSelectionChange(id)
+                propertiesPanel.onSelectionChange(id, false, true)
             }
             if (layersPanel) {
                 layersPanel.onSelectionChange(id)
@@ -546,18 +578,15 @@ function handleMouseDown(e) {
         function handleMouseUp() {
             canvas.removeEventListener('mousemove', handleMouseMove)
 
-            // Remove tempDiv from DOM
             if (tempDiv.parentNode) {
                 tempDiv.remove()
             }
 
-            // For lines, check length; for shapes, check both width and height
             const isValidSize = type === 'line'
                 ? Math.sqrt(width * width + height * height) > 6
                 : (Math.abs(width) > 10 && Math.abs(height) > 10)
 
             if (isValidSize) {
-                // For lines, store the angle and adjust styles
                 if (type === 'line') {
                     const length = Math.sqrt(width * width + height * height)
                     styles.transform = `rotate(${angle}deg)`
@@ -583,8 +612,6 @@ function handleMouseDown(e) {
     } else if (tab === 'create' && mode === 'select') {
         const target = e.target
 
-        // Check if clicked on canvas (not an element)
-        // Need to check if target or its parent has dataset.element (for text-content)
         const elementDiv = target.closest('[data-element]')
 
         if (!elementDiv || target === canvas) {
@@ -597,7 +624,6 @@ function handleMouseDown(e) {
             })
             renderElements()
 
-            // Sync properties panel and layers panel
             if (propertiesPanel) {
                 propertiesPanel.onSelectionChange(null)
             }
@@ -616,11 +642,9 @@ function handleMouseDown(e) {
         const targetDetails = elements.find(el => el.id === selectedItemId)
         console.log(targetDetails)
 
-        // Get actual rendered position from DOM (not from data)
         const startElementX = parseInt(elementDiv.style.left)
         const startElementY = parseInt(elementDiv.style.top)
 
-        // Initialize with current position so clicking without dragging doesn't move element
         let newX = startElementX
         let newY = startElementY
 
@@ -634,30 +658,28 @@ function handleMouseDown(e) {
 
         renderElements()
 
-        // Sync properties panel and layers panel
         if (propertiesPanel) {
-            propertiesPanel.onSelectionChange(selectedItemId)
+            propertiesPanel.onSelectionChange(selectedItemId, false, false)
         }
         if (layersPanel) {
             layersPanel.onSelectionChange(selectedItemId)
         }
 
+        disableUIPointerEvents()
+
         function handleMouseMove(e) {
             newX = startElementX + (e.clientX - startMouseX)
             newY = startElementY + (e.clientY - startMouseY)
 
-            // Get the fresh element reference after render
             const currentElement = canvas.querySelector(`[data-element="${selectedItemId}"]`)
             if (currentElement) {
                 const canvasWidth = canvas.offsetWidth
                 const canvasHeight = canvas.offsetHeight
 
-                // For lines, keep origin point within canvas
                 if (targetDetails.type === 'line') {
                     newX = Math.max(0, Math.min(newX, canvasWidth))
                     newY = Math.max(0, Math.min(newY, canvasHeight))
                 } else {
-                    // For shapes, use element dimensions for boundary checking
                     const elementWidth = currentElement.offsetWidth
                     const elementHeight = currentElement.offsetHeight
                     newX = Math.max(0, Math.min(newX, canvasWidth - elementWidth))
@@ -670,11 +692,11 @@ function handleMouseDown(e) {
         }
 
         function handleMouseUp() {
+            enableUIPointerEvents()
             canvas.removeEventListener('mousemove', handleMouseMove)
             canvas.removeEventListener('mouseup', handleMouseUp)
             elements = elements.map((el) => {
                 if (el.id === selectedItemId) {
-                    // For shapes with negative width/height, adjust x/y back
                     if (el.type !== 'line') {
                         const adjustedX = el.width < 0 ? newX - el.width : newX
                         const adjustedY = el.height < 0 ? newY - el.height : newY
@@ -698,20 +720,16 @@ function renderElements() {
 
     elements.forEach((el, index) => {
         const div = createElement(el)
-        // Set z-index based on position in array
         div.style.zIndex = index
         canvas.appendChild(div)
     })
 
-    // Update layers panel
     if (layersPanel) {
         layersPanel.updateLayersList()
     }
 
-    // Update export tab state
     updateExportTabState()
 
-    // Save to localStorage
     saveToLocalStorage()
 
     console.log(elements)
@@ -734,7 +752,6 @@ function createElement(element) {
     div.dataset.element = element.id
     applyStyles(div, element)
 
-    // For text elements, add contenteditable div
     if (element.type === 'text') {
         const textContent = document.createElement('div')
         textContent.className = 'text-content'
@@ -754,7 +771,6 @@ function createElement(element) {
         textContent.style.display = 'inline-block'
         textContent.style.userSelect = isNewlyCreated ? 'text' : 'none'
 
-        // Update element text on input
         textContent.addEventListener('input', (e) => {
             const elementIndex = elements.findIndex(el => el.id === element.id)
             if (elementIndex !== -1) {
@@ -762,13 +778,11 @@ function createElement(element) {
             }
         })
 
-        // Save and exit edit mode on blur
         textContent.addEventListener('blur', (e) => {
             textContent.setAttribute('contenteditable', 'false')
             textContent.style.cursor = 'move'
             textContent.style.userSelect = 'none'
 
-            // Update element text and remove isNewlyCreated flag
             const elementIndex = elements.findIndex(el => el.id === element.id)
             if (elementIndex !== -1) {
                 elements[elementIndex].text = e.target.textContent
@@ -776,19 +790,16 @@ function createElement(element) {
             }
         })
 
-        // Stop propagation when actively editing
         textContent.addEventListener('mousedown', (e) => {
             if (textContent.getAttribute('contenteditable') === 'true') {
                 e.stopPropagation()
             }
         })
 
-        // If element is newly created, focus and select text
         if (isNewlyCreated) {
             setTimeout(() => {
                 textContent.focus()
 
-                // Select all text
                 const range = document.createRange()
                 range.selectNodeContents(textContent)
                 const selection = window.getSelection()
@@ -800,7 +811,6 @@ function createElement(element) {
         div.appendChild(textContent)
     }
 
-    // Add dimension panel if element is selected
     if (element.isSelected) {
         const isLine = element.type === 'line'
         const isText = element.type === 'text'
@@ -810,11 +820,9 @@ function createElement(element) {
             div.appendChild(dimensionPanel)
         }
 
-        // Add resize handles
         const resizeHandles = createResizeHandles(element)
         resizeHandles.forEach(handle => div.appendChild(handle))
 
-        // Add rotation handle (not for lines or text)
         if (!isLine && !isText) {
             const rotationHandle = createRotationHandle(element)
             if (rotationHandle) {
@@ -836,7 +844,6 @@ function applyStyles(item, stylingInfo) {
     item.style.borderRadius = stylingInfo.styles.borderRadius
     item.style.cursor = 'move'
 
-    // Add selection outline (separate from border)
     if (stylingInfo.isSelected) {
         item.style.outline = '2px solid #0E81E6'
         item.style.outlineOffset = '0px'
@@ -844,15 +851,13 @@ function applyStyles(item, stylingInfo) {
         item.style.outline = 'none'
     }
 
-    // Handle text elements
     if (stylingInfo.type === 'text') {
         item.style.top = `${stylingInfo.y}px`
         item.style.left = `${stylingInfo.x}px`
 
-        // Use auto sizing for text elements
         if (stylingInfo.width === 'auto' || !stylingInfo.width) {
             item.style.width = 'auto'
-            item.style.maxWidth = '800px' // Prevent too wide
+            item.style.maxWidth = '800px'
         } else {
             item.style.width = `${stylingInfo.width}px`
         }
@@ -865,7 +870,6 @@ function applyStyles(item, stylingInfo) {
 
         item.style.display = 'inline-block'
     }
-    // Handle lines differently
     else if (stylingInfo.type === 'line') {
         item.style.top = `${stylingInfo.y}px`
         item.style.left = `${stylingInfo.x}px`
@@ -873,14 +877,12 @@ function applyStyles(item, stylingInfo) {
         item.style.height = `${stylingInfo.height}px`
         item.style.transformOrigin = stylingInfo.styles.transformOrigin || '0 0'
 
-        // Apply line-specific transform or rotation
         if (stylingInfo.rotation !== undefined) {
             item.style.transform = `rotate(${stylingInfo.rotation}deg)`
         } else if (stylingInfo.styles.transform) {
             item.style.transform = stylingInfo.styles.transform
         }
     } else {
-        // Handle squares and circles
         if (stylingInfo.width > 0) {
             item.style.left = `${stylingInfo.x}px`
         } else {
@@ -896,7 +898,6 @@ function applyStyles(item, stylingInfo) {
         item.style.width = `${Math.abs(stylingInfo.width)}px`
         item.style.height = `${Math.abs(stylingInfo.height)}px`
 
-        // Apply rotation for shapes
         if (stylingInfo.rotation !== undefined) {
             item.style.transform = `rotate(${stylingInfo.rotation}deg)`
             item.style.transformOrigin = 'center center'
@@ -904,7 +905,6 @@ function applyStyles(item, stylingInfo) {
     }
 }
 
-// Initialize tab indicator position
 function initTabIndicator() {
     const activeTab = document.querySelector('.active-tab')
     const indicator = document.querySelector('#tab-indicator')
@@ -915,7 +915,6 @@ function initTabIndicator() {
     indicator.style.width = `${tabRect.width}px`
 }
 
-// Initialize on page load
 initTabIndicator()
 
 tabs.forEach((tabEl) => {
@@ -928,11 +927,30 @@ tabs.forEach((tabEl) => {
     })
 })
 
-// Export button event listeners
 jsonExportBtn.addEventListener('click', () => {
     exportJSON(elements, loadingIndicator, jsonExportBtn, htmlExportBtn)
 })
 
 htmlExportBtn.addEventListener('click', () => {
     exportHTML(elements, loadingIndicator, jsonExportBtn, htmlExportBtn)
+})
+
+infoBtn.addEventListener('click', () => {
+    infoModal.style.opacity = '1'
+    infoModal.style.pointerEvents = 'auto'
+    infoModal.querySelector('div > div').style.transform = 'scale(1)'
+})
+
+infoCloseBtn.addEventListener('click', () => {
+    infoModal.style.opacity = '0'
+    infoModal.style.pointerEvents = 'none'
+    infoModal.querySelector('div > div').style.transform = 'scale(0.95)'
+})
+
+infoModal.addEventListener('click', (e) => {
+    if (e.target === infoModal) {
+        infoModal.style.opacity = '0'
+        infoModal.style.pointerEvents = 'none'
+        infoModal.querySelector('div > div').style.transform = 'scale(0.95)'
+    }
 })

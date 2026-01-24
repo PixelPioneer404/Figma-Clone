@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "./globals.css";
 
-/* Canvas */
 .canvas-bg {
     background-color: var(--canvas-bg);
     background-image: radial-gradient(#dcdee1 1px, transparent 1px);
@@ -26,4 +25,26 @@
 
 .active-menu {
     display: flex !important;
+}
+
+.scrollbar-custom::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.scrollbar-custom {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }

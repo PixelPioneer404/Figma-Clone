@@ -1,4 +1,3 @@
-// Resize and Rotation Handles
 
 export function createResizeHandles(element) {
     const handleSize = '10px'
@@ -47,21 +46,15 @@ export function createResizeHandles(element) {
             pointerEvents: 'auto'
         })
         
-        // Apply position styles
         if (element.type === 'line') {
-            // For lines, handles should be positioned at endpoints
-            // The line has transform applied, so we position handles in the untransformed space
             if (pos.corner === 'start') {
                 handle.style.top = '-5px'
                 handle.style.left = '-5px'
             } else if (pos.corner === 'end') {
-                // End handle is at the end of the horizontal line (before rotation)
-                // The parent line element has the rotation, so handle is positioned at (width, 0)
                 handle.style.left = `${element.width - 5}px`
                 handle.style.top = '-5px'
             }
         } else {
-            // Apply position styles for non-line elements
             for (const [key, value] of Object.entries(pos)) {
                 if (key !== 'cursor' && key !== 'corner') {
                     handle.style[key] = value
@@ -76,7 +69,6 @@ export function createResizeHandles(element) {
 }
 
 export function createRotationHandle(element) {
-    // Don't create rotation handle for lines
     if (element.type === 'line') {
         return null
     }
@@ -121,7 +113,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
     const rotation = element.rotation || 0
     const rotationRad = rotation * (Math.PI / 180)
     
-    // For text elements, store the initial anchor position
     let textAnchorX, textAnchorY, initialTextWidth, initialTextHeight
     if (element.type === 'text') {
         const textDiv = document.querySelector(`[data-element="${elementId}"]`)
@@ -131,11 +122,9 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
         initialTextHeight = actualRect ? actualRect.height : 30
         
         if (corner === 'tl') {
-            // Anchor at bottom-right corner
             textAnchorX = startPosX + initialTextWidth
             textAnchorY = startPosY + initialTextHeight
         } else if (corner === 'br') {
-            // Anchor at top-left corner
             textAnchorX = startPosX
             textAnchorY = startPosY
         }
@@ -153,13 +142,10 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
         let newY = startPosY
         
         if (element.type === 'square') {
-            // For rotated squares, we need to transform mouse delta into element's local space
             if (rotation !== 0) {
-                // Calculate the center of the element in world space
                 const centerX = startPosX + startWidth / 2
                 const centerY = startPosY + startHeight / 2
                 
-                // Get the opposite corner position in local space (relative to center)
                 let oppositeCornerLocalX = 0
                 let oppositeCornerLocalY = 0
                 
@@ -177,11 +163,9 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                     oppositeCornerLocalY = startHeight / 2
                 }
                 
-                // Transform opposite corner to world space
                 const oppositeCornerWorldX = centerX + oppositeCornerLocalX * Math.cos(rotationRad) - oppositeCornerLocalY * Math.sin(rotationRad)
                 const oppositeCornerWorldY = centerY + oppositeCornerLocalX * Math.sin(rotationRad) + oppositeCornerLocalY * Math.cos(rotationRad)
                 
-                // Get the dragging corner position in local space (relative to center)
                 let dragCornerLocalX = 0
                 let dragCornerLocalY = 0
                 
@@ -199,45 +183,35 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                     dragCornerLocalY = -startHeight / 2
                 }
                 
-                // Transform drag corner to world space initially
                 const dragCornerStartWorldX = centerX + dragCornerLocalX * Math.cos(rotationRad) - dragCornerLocalY * Math.sin(rotationRad)
                 const dragCornerStartWorldY = centerY + dragCornerLocalX * Math.sin(rotationRad) + dragCornerLocalY * Math.cos(rotationRad)
                 
-                // New position of drag corner after mouse movement
                 const dragCornerNewWorldX = dragCornerStartWorldX + dx
                 const dragCornerNewWorldY = dragCornerStartWorldY + dy
                 
-                // Calculate vector from opposite corner to new drag corner position
                 const newVectorX = dragCornerNewWorldX - oppositeCornerWorldX
                 const newVectorY = dragCornerNewWorldY - oppositeCornerWorldY
                 
-                // Transform this vector to local space to get new dimensions
                 const localVectorX = newVectorX * Math.cos(-rotationRad) - newVectorY * Math.sin(-rotationRad)
                 const localVectorY = newVectorX * Math.sin(-rotationRad) + newVectorY * Math.cos(-rotationRad)
                 
-                // New dimensions (distance from opposite corner to drag corner, doubled since corner is at half-size)
                 newWidth = Math.abs(localVectorX)
                 newHeight = Math.abs(localVectorY)
                 
-                // Apply minimum size
                 newWidth = Math.max(20, newWidth)
                 newHeight = Math.max(20, newHeight)
                 
-                // Calculate new center position (midpoint between opposite corner and new drag corner)
                 const newCenterX = oppositeCornerWorldX + newVectorX / 2
                 const newCenterY = oppositeCornerWorldY + newVectorY / 2
                 
-                // Calculate top-left position from center
                 newX = newCenterX - newWidth / 2
                 newY = newCenterY - newHeight / 2
                 
             } else {
-                // Non-rotated square - use original logic
                 if (corner === 'br') { // bottom-right
                     newWidth = startWidth + dx
                     newHeight = startHeight + dy
                     
-                    // Handle flipping
                     if (newWidth < 0) {
                         newX = startPosX + newWidth
                         newWidth = Math.abs(newWidth)
@@ -256,7 +230,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                     newWidth = startWidth - dx
                     newHeight = startHeight + dy
                     
-                    // Handle flipping
                     if (newWidth < 0) {
                         newX = startPosX + startWidth
                         newWidth = Math.abs(newWidth)
@@ -275,7 +248,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                     newWidth = startWidth + dx
                     newHeight = startHeight - dy
                     
-                    // Handle flipping
                     if (newWidth < 0) {
                         newX = startPosX + newWidth
                         newWidth = Math.abs(newWidth)
@@ -294,7 +266,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                     newWidth = startWidth - dx
                     newHeight = startHeight - dy
                     
-                    // Handle flipping
                     if (newWidth < 0) {
                         newX = startPosX + startWidth
                         newWidth = Math.abs(newWidth)
@@ -310,13 +281,11 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                     }
                 }
                 
-                // Apply minimum size
                 newWidth = Math.max(20, newWidth)
                 newHeight = Math.max(20, newHeight)
             }
             
         } else if (element.type === 'circle') {
-            // Circle resize - allow independent width/height adjustment (becomes ellipse)
             if (corner === 't') { // top
                 newHeight = Math.max(20, startHeight - dy)
                 newY = startPosY + dy
@@ -330,11 +299,8 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
             }
             
         } else if (element.type === 'line') {
-            // Line resize - adjust angle and length by moving endpoints
             
             if (corner === 'start') {
-                // Moving start point - change angle and position
-                // Get current element state (may have changed from previous mousemove)
                 const currentElement = elements.find(el => el.id === elementId)
                 if (!currentElement) return
                 
@@ -343,14 +309,12 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                 const currentAngle = currentAngleMatch ? parseFloat(currentAngleMatch[1]) : 0
                 const currentAngleRad = currentAngle * (Math.PI / 180)
                 
-                // Calculate current end point based on current angle and width
                 const currentEndX = currentElement.x + currentElement.width * Math.cos(currentAngleRad)
                 const currentEndY = currentElement.y + currentElement.width * Math.sin(currentAngleRad)
                 
                 newX = startPosX + dx
                 newY = startPosY + dy
                 
-                // Calculate new angle and length from new start to current end
                 const deltaX = currentEndX - newX
                 const deltaY = currentEndY - newY
                 const newLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
@@ -358,7 +322,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                 
                 newWidth = Math.max(10, newLength)
                 
-                // Store angle in element
                 const index = elements.findIndex(el => el.id === elementId)
                 if (index !== -1) {
                     elements[index] = {
@@ -377,12 +340,9 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                 return
                 
             } else if (corner === 'end') {
-                // Moving end point - change angle and length
-                // Use mouse position directly as the new end point
                 const newEndX = e.clientX
                 const newEndY = e.clientY
                 
-                // Calculate new angle and length from start to new end
                 const deltaX = newEndX - startPosX
                 const deltaY = newEndY - startPosY
                 const newLength = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
@@ -390,7 +350,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                 
                 newWidth = Math.max(10, newLength)
                 
-                // Store angle in element
                 const index = elements.findIndex(el => el.id === elementId)
                 if (index !== -1) {
                     elements[index] = {
@@ -407,9 +366,7 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                 return
             }
         } else if (element.type === 'text') {
-            // Text resize - adjust font size with opposite corner anchored
             if (corner === 'tl') {
-                // Top-left handle: bottom-right corner is fixed at textAnchorX, textAnchorY
                 const currentDist = Math.sqrt(
                     Math.pow(e.clientX - textAnchorX, 2) + Math.pow(e.clientY - textAnchorY, 2)
                 )
@@ -423,7 +380,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                 let newFontSize = startFontSize + fontSizeChange
                 newFontSize = Math.max(8, Math.min(200, newFontSize))
                 
-                // Calculate position to keep bottom-right corner at anchor
                 const fontScale = newFontSize / startFontSize
                 const scaledWidth = initialTextWidth * fontScale
                 const scaledHeight = initialTextHeight * fontScale
@@ -441,7 +397,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                     }
                 }
             } else if (corner === 'br') {
-                // Bottom-right handle: top-left corner is fixed at textAnchorX, textAnchorY
                 const currentDist = Math.sqrt(
                     Math.pow(e.clientX - textAnchorX, 2) + Math.pow(e.clientY - textAnchorY, 2)
                 )
@@ -456,7 +411,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
                 let newFontSize = startFontSize + fontSizeChange
                 newFontSize = Math.max(8, Math.min(200, newFontSize))
                 
-                // Position stays at anchor (top-left)
                 const index = elements.findIndex(el => el.id === elementId)
                 if (index !== -1) {
                     elements[index] = {
@@ -471,7 +425,6 @@ export function handleResize(e, handleEl, elements, renderCallback, syncCallback
             return
         }
         
-        // Update element in array (for non-line or simple updates)
         const index = elements.findIndex(el => el.id === elementId)
         if (index !== -1) {
             elements[index] = {
@@ -512,7 +465,6 @@ export function handleRotation(e, rotationHandle, elements, renderCallback, sync
     
     rotationHandle.style.cursor = 'grabbing'
     
-    // Get current rotation if exists
     const currentRotation = element.rotation || 0
     
     function onMouseMove(e) {
@@ -521,10 +473,8 @@ export function handleRotation(e, rotationHandle, elements, renderCallback, sync
             e.clientX - centerX
         ) * (180 / Math.PI)
         
-        // Normalize angle
         const normalizedAngle = angle + 90
         
-        // Update element in array
         const index = elements.findIndex(el => el.id === elementId)
         if (index !== -1) {
             elements[index] = {

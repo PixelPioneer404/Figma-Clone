@@ -8,7 +8,6 @@ export class LayersPanel {
         this.isVisible = false
         this.selectedLayerId = null
         
-        // Get DOM elements
         this.panel = document.getElementById('layers-panel')
         this.toggleBtn = document.getElementById('layers-toggle-btn')
         this.closeBtn = document.getElementById('layers-close-btn')
@@ -18,17 +17,18 @@ export class LayersPanel {
     }
     
     init() {
-        // Toggle button click - shows panel
         this.toggleBtn.addEventListener('click', () => {
-            this.show()
+            if (this.isVisible) {
+                this.hide()
+            } else {
+                this.show()
+            }
         })
         
-        // Close button click - hides panel
         this.closeBtn.addEventListener('click', () => {
             this.hide()
         })
         
-        // Initial render
         this.updateLayersList()
     }
     
@@ -36,25 +36,23 @@ export class LayersPanel {
         this.isVisible = true
         this.panel.classList.remove('-translate-x-[calc(100%+40px)]')
         this.panel.classList.add('translate-x-0')
-        this.toggleBtn.style.opacity = '0'
-        this.toggleBtn.style.pointerEvents = 'none'
+        const icon = this.toggleBtn.querySelector('img')
+        icon.src = './assets/icons/layers-fill.png'
     }
     
     hide() {
         this.isVisible = false
         this.panel.classList.add('-translate-x-[calc(100%+40px)]')
         this.panel.classList.remove('translate-x-0')
-        this.toggleBtn.style.opacity = '1'
-        this.toggleBtn.style.pointerEvents = 'auto'
+        const icon = this.toggleBtn.querySelector('img')
+        icon.src = './assets/icons/layers.png'
     }
     
     updateLayersList() {
         const elements = this.getElements()
         
-        // Clear current list
         this.layersList.innerHTML = ''
         
-        // If no elements, show empty state
         if (elements.length === 0) {
             this.layersList.innerHTML = `
                 <div class="text-white/40 text-sm font-sans text-center py-8">
@@ -64,7 +62,6 @@ export class LayersPanel {
             return
         }
         
-        // Render layers in reverse order (top element = highest z-index)
         const reversedElements = [...elements].reverse()
         
         reversedElements.forEach((element, visualIndex) => {
@@ -80,14 +77,10 @@ export class LayersPanel {
             element.isSelected ? 'bg-blue-500/20 border border-blue-500/50' : 'border border-transparent'
         }`
         
-        // Get element icon based on type
         const icon = this.getElementIcon(element.type)
         
-        // Get element name
         const name = this.getElementName(element)
         
-        // Visual index 0 = top of list = highest z-index = can only move down
-        // Visual index last = bottom of list = lowest z-index = can only move up
         const isAtTop = visualIndex === 0
         const isAtBottom = visualIndex === totalLayers - 1
         
@@ -113,7 +106,6 @@ export class LayersPanel {
             </div>
         `
         
-        // Add event listeners
         const selectArea = layerDiv.querySelector('[data-layer-select]')
         selectArea.addEventListener('click', (e) => {
             e.stopPropagation()
@@ -170,7 +162,6 @@ export class LayersPanel {
             this.onLayerSelect(layerId)
         }
         
-        // Update visual selection
         this.updateLayersList()
     }
     
@@ -179,7 +170,6 @@ export class LayersPanel {
         const index = elements.findIndex(el => el.id === layerId)
         
         if (index < elements.length - 1) {
-            // Swap with next element (higher z-index)
             const temp = elements[index]
             elements[index] = elements[index + 1]
             elements[index + 1] = temp
@@ -195,7 +185,6 @@ export class LayersPanel {
         const index = elements.findIndex(el => el.id === layerId)
         
         if (index > 0) {
-            // Swap with previous element (lower z-index)
             const temp = elements[index]
             elements[index] = elements[index - 1]
             elements[index - 1] = temp
@@ -211,7 +200,6 @@ export class LayersPanel {
             this.onLayerDelete(layerId)
         }
         
-        // Update layers list
         this.updateLayersList()
     }
     
