@@ -33,8 +33,10 @@ export function exportJSON(elements, loadingIndicator, jsonExportBtn, htmlExport
     
     setTimeout(() => {
         const jsonData = JSON.stringify(elements, null, 2)
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
-        downloadFile(jsonData, `figma-design-${timestamp}.json`, 'application/json')
+        const date = new Date()
+        const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+        const formattedTime = `${String(date.getHours()).padStart(2, '0')}-${String(date.getMinutes()).padStart(2, '0')}`
+        downloadFile(jsonData, `redesign-export-${formattedDate}-${formattedTime}.json`, 'application/json')
         hideLoading(loadingIndicator, jsonExportBtn, htmlExportBtn)
     }, 500)
 }
@@ -130,8 +132,10 @@ export function exportHTML(elements, loadingIndicator, jsonExportBtn, htmlExport
 </body>
 </html>`
 
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
-        downloadFile(htmlContent, `figma-design-${timestamp}.html`, 'text/html')
+        const date = new Date()
+        const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+        const formattedTime = `${String(date.getHours()).padStart(2, '0')}-${String(date.getMinutes()).padStart(2, '0')}`
+        downloadFile(htmlContent, `redesign-export-${formattedDate}-${formattedTime}.html`, 'text/html')
         hideLoading(loadingIndicator, jsonExportBtn, htmlExportBtn)
     }, 800)
 }
