@@ -113,7 +113,7 @@ export class LayersPanel {
         
         layerDiv.innerHTML = `
             <div class="flex items-center gap-2 flex-1 min-w-0" data-layer-select="${element.id}">
-                <i class="${icon} text-white/80 text-base flex-shrink-0"></i>
+                <i class="${icon} text-white/80 text-base shrink-0"></i>
                 <span class="text-white/90 text-sm font-sans truncate">${name}</span>
             </div>
             <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -230,51 +230,27 @@ export class LayersPanel {
         this.updateLayersList()
     }
     
-    showDeleteConfirmation() {
+    deleteAllLayers() {
         const elements = this.getElements()
         
         if (elements.length === 0) {
             return
         }
         
-        this.confirmText.textContent = `Are you sure you want to delete all ${elements.length} layer${elements.length > 1 ? 's' : ''}? This action cannot be undone.`
-        
-        this.confirmModal.classList.remove('hidden')
-        this.confirmModal.classList.add('flex')
-        
-        setTimeout(() => {
-            this.confirmModal.classList.remove('opacity-0')
-            this.confirmModal.querySelector('.bg-\\(--menu-bg\\)').classList.remove('scale-95')
-            this.confirmModal.querySelector('.bg-\\(--menu-bg\\)').classList.add('scale-100')
-        }, 10)
-    }
-    
-    hideDeleteConfirmation() {
-        this.confirmModal.classList.add('opacity-0')
-        this.confirmModal.querySelector('.bg-\\(--menu-bg\\)').classList.remove('scale-100')
-        this.confirmModal.querySelector('.bg-\\(--menu-bg\\)').classList.add('scale-95')
-        
-        setTimeout(() => {
-            this.confirmModal.classList.add('hidden')
-            this.confirmModal.classList.remove('flex')
-        }, 300)
-    }
-    
-    executeDeleteAll() {
-        this.setElements([])
-        this.selectedLayerId = null
-        
-        const canvas = document.getElementById('canvas')
-        canvas.innerHTML = ''
-        
-        this.renderCallback()
-        this.updateLayersList()
-        
-        if (this.onLayerSelect) {
-            this.onLayerSelect(null)
+        if (confirm(`Are you sure you want to delete all ${elements.length} layer${elements.length > 1 ? 's' : ''}?`)) {
+            this.setElements([])
+            this.selectedLayerId = null
+            
+            const canvas = document.getElementById('canvas')
+            canvas.innerHTML = ''
+            
+            this.renderCallback()
+            this.updateLayersList()
+            
+            if (this.onLayerSelect) {
+                this.onLayerSelect(null)
+            }
         }
-        
-        this.hideDeleteConfirmation()
     }
     
     onSelectionChange(selectedId) {
