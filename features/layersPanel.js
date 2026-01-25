@@ -11,7 +11,13 @@ export class LayersPanel {
         this.panel = document.getElementById('layers-panel')
         this.toggleBtn = document.getElementById('layers-toggle-btn')
         this.closeBtn = document.getElementById('layers-close-btn')
+        this.deleteAllBtn = document.getElementById('delete-all-layers-btn')
         this.layersList = document.getElementById('layers-list')
+        
+        this.confirmModal = document.getElementById('delete-all-confirmation-modal')
+        this.confirmText = document.getElementById('delete-all-confirmation-text')
+        this.confirmBtn = document.getElementById('delete-all-confirm-btn')
+        this.cancelBtn = document.getElementById('delete-all-cancel-btn')
         
         this.init()
     }
@@ -27,6 +33,24 @@ export class LayersPanel {
         
         this.closeBtn.addEventListener('click', () => {
             this.hide()
+        })
+        
+        this.deleteAllBtn.addEventListener('click', () => {
+            this.showDeleteConfirmation()
+        })
+        
+        this.cancelBtn.addEventListener('click', () => {
+            this.hideDeleteConfirmation()
+        })
+        
+        this.confirmBtn.addEventListener('click', () => {
+            this.executeDeleteAll()
+        })
+        
+        this.confirmModal.addEventListener('click', (e) => {
+            if (e.target === this.confirmModal) {
+                this.hideDeleteConfirmation()
+            }
         })
         
         this.updateLayersList()
@@ -54,6 +78,7 @@ export class LayersPanel {
         this.layersList.innerHTML = ''
         
         if (elements.length === 0) {
+            this.deleteAllBtn.disabled = true
             this.layersList.innerHTML = `
                 <div class="text-white/40 text-sm font-sans text-center py-8">
                     No layers yet
@@ -61,6 +86,8 @@ export class LayersPanel {
             `
             return
         }
+        
+        this.deleteAllBtn.disabled = false
         
         const reversedElements = [...elements].reverse()
         
@@ -201,6 +228,53 @@ export class LayersPanel {
         }
         
         this.updateLayersList()
+    }
+    
+    showDeleteConfirmation() {
+        const elements = this.getElements()
+        
+        if (elements.length === 0) {
+            return
+        }
+        
+        this.confirmText.textContent = `Are you sure you want to delete all ${elements.length} layer${elements.length > 1 ? 's' : ''}? This action cannot be undone.`
+        
+        this.confirmModal.classList.remove('hidden')
+        this.confirmModal.classList.add('flex')
+        
+        setTimeout(() => {
+            this.confirmModal.classList.remove('opacity-0')
+            this.confirmModal.querySelector('.bg-\\(--menu-bg\\)').classList.remove('scale-95')
+            this.confirmModal.querySelector('.bg-\\(--menu-bg\\)').classList.add('scale-100')
+        }, 10)
+    }
+    
+    hideDeleteConfirmation() {
+        this.confirmModal.classList.add('opacity-0')
+        this.confirmModal.querySelector('.bg-\\(--menu-bg\\)').classList.remove('scale-100')
+        this.confirmModal.querySelector('.bg-\\(--menu-bg\\)').classList.add('scale-95')
+        
+        setTimeout(() => {
+            this.confirmModal.classList.add('hidden')
+            this.confirmModal.classList.remove('flex')
+        }, 300)
+    }
+    
+    executeDeleteAll() {
+        this.setElements([])
+        this.selectedLayerId = null
+        
+        const canvas = document.getElementById('canvas')
+        canvas.innerHTML = ''
+        
+        this.renderCallback()
+        this.updateLayersList()
+        
+        if (this.onLayerSelect) {
+            this.onLayerSelect(null)
+        }
+        
+        this.hideDeleteConfirmation()
     }
     
     onSelectionChange(selectedId) {

@@ -16,6 +16,10 @@ body {
     user-select: none;
 }
 
+button {
+    cursor: pointer;
+}
+
 @keyframes fadeInUp {
     from {
         opacity: 0;
