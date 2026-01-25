@@ -218,7 +218,7 @@ If you want to modify the Tailwind CSS:
 2. Choose your format:
    - **JSON** - Preserves all design data
    - **HTML** - Creates a standalone viewable file
-3. Click the export button
+3. Click the export button1
 4. Your file downloads automatically
 
 ---
