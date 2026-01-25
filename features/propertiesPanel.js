@@ -69,7 +69,7 @@ export class PropertiesPanel {
         this.panel.classList.remove('translate-x-[calc(100%+40px)]')
         this.panel.classList.add('translate-x-0')
         const icon = this.toggleBtn.querySelector('img')
-        icon.src = './assets/icons/theme-fill.png'
+        icon.src = '/assets/icons/theme-fill.png'
         
         if (!this.selectedElement) {
             this.disable()
@@ -81,7 +81,7 @@ export class PropertiesPanel {
         this.panel.classList.add('translate-x-[calc(100%+40px)]')
         this.panel.classList.remove('translate-x-0')
         const icon = this.toggleBtn.querySelector('img')
-        icon.src = './assets/icons/theme.png'
+        icon.src = '/assets/icons/theme.png'
     }
     
     onSelectionChange(selectedId, forceUpdate = false, autoOpen = false) {

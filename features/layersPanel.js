@@ -61,7 +61,7 @@ export class LayersPanel {
         this.panel.classList.remove('-translate-x-[calc(100%+40px)]')
         this.panel.classList.add('translate-x-0')
         const icon = this.toggleBtn.querySelector('img')
-        icon.src = './assets/icons/layers-fill.png'
+        icon.src = '/assets/icons/layers-fill.png'
     }
     
     hide() {
@@ -69,7 +69,7 @@ export class LayersPanel {
         this.panel.classList.add('-translate-x-[calc(100%+40px)]')
         this.panel.classList.remove('translate-x-0')
         const icon = this.toggleBtn.querySelector('img')
-        icon.src = './assets/icons/layers.png'
+        icon.src = '/assets/icons/layers.png'
     }
     
     updateLayersList() {
